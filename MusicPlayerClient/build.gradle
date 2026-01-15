@@ -11,11 +11,19 @@ java {
 }
 **/
 
+
 javafx {
     version = "21.0.4"
-    modules = [ 'javafx.media' ]  // no UI, just media
+    modules = [ 'javafx.controls', 'javafx.media' ]  // no UI, just media
 }
 
 application {
-    mainClass = "player.Main"
+    mainClass = "player.MainApp"
+}
+
+tasks.register("runGui", JavaExec) {
+    group = "application"
+    description = "Run the JavaFX GUI"
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = "player.MainApp"
 }
