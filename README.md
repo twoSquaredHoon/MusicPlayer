@@ -1,5 +1,5 @@
 ## MusicPlayer
----
+
 A lightweight CLI music player written in Java, using JavaFX MediaPlayer for audio playback.
 Designed with a clean internal architecture so a graphical UI can be added later without rewriting core logic.
 
@@ -18,6 +18,7 @@ Cross-platform (macOS, Linux, Windows*)
 * Windows support depends on JavaFX media codecs.
 
 ### Project Structure
+```
 MusicPlayerClient/
 ├─ build.gradle
 ├─ settings.gradle
@@ -28,7 +29,7 @@ MusicPlayerClient/
    ├─ Track.java         # Represents a single audio track
    ├─ Playlist.java      # Track list + navigation logic
    └─ PlayerEngine.java  # JavaFX MediaPlayer wrapper
-
+```
 ### Architecture Overview
 
 #### Track
@@ -80,6 +81,7 @@ Run
 ```
 
 ### CLI Commands
+```
 help
 list [n]         - show first n tracks (default 30)
 play <i>         - play track index i
@@ -89,3 +91,4 @@ seek <seconds>   - jump to time
 vol <0..1>       - set volume
 now              - show current track/time
 quit
+```
