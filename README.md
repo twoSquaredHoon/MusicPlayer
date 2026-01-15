@@ -23,11 +23,13 @@ MusicPlayerClient/
 ├─ build.gradle
 ├─ settings.gradle
 ├─ gradlew
-├─ gradle/wrapper/
+├─ gradlew.bat
+├─ gradle/
 └─ src/main/java/player/
    ├─ Main.java          # CLI entry point
-   ├─ Track.java         # Represents a single audio track
-   ├─ Playlist.java      # Track list + navigation logic
+   ├─ MainApp.java       # JavaFX GUI entry point
+   ├─ Track.java         # Single track abstraction
+   ├─ Playlist.java      # Library + navigation logic
    └─ PlayerEngine.java  # JavaFX MediaPlayer wrapper
 ```
 ### Architecture Overview
@@ -64,7 +66,7 @@ JavaFX (handled automatically via Gradle)
 
 No manual Gradle installation required (uses Gradle Wrapper)
 
-### Build & Run
+### Build & Run Commands
 
 All commands must be executed from:
 ```
@@ -75,11 +77,14 @@ Build
 ```
 ./gradlew installDist
 ```
-Run
+Run - CLI
 ```
 ./build/install/MusicPlayerClient/bin/MusicPlayerClient "<music-folder>"
 ```
-
+Run - GUI
+```
+./gradlew run --args="/path/to/music-folder"
+```
 ### CLI Commands
 ```
 help
