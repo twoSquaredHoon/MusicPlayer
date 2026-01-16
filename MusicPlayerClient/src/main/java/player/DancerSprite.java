@@ -3,21 +3,23 @@ package player;
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
-import javafx.geometry.Rectangle2D;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
 import javafx.scene.layout.StackPane;
 import javafx.util.Duration;
 
 public class DancerSprite extends StackPane {
 
-    private final ImageView view = new ImageView();
+    private final Image sheet;
+    private final Canvas canvas;
+    private final GraphicsContext g;
     private final Timeline timeline;
 
     private final int cols;
     private final int frameW;
     private final int frameH;
-    private final int frames;     // total frames used (we'll use 0..frames-1)
+    private final int frames;
     private final int idleFrame;
     private int frame = 0;
 
@@ -34,34 +36,36 @@ public class DancerSprite extends StackPane {
         this.frames = frames;
         this.idleFrame = idleFrame;
 
-        Image img = new Image(getClass().getResourceAsStream(resourcePath));
-        view.setImage(img);
+        this.sheet = new Image(getClass().getResourceAsStream(resourcePath));
 
-        // Pixel look
-        view.setFitWidth(frameW * (double) scale);
-        view.setFitHeight(frameH * (double) scale);
-        view.setPreserveRatio(false);
-        view.setSmooth(false);
+        this.canvas = new Canvas(frameW * (double) scale, frameH * (double) scale);
+        this.g = canvas.getGraphicsContext2D();
+        this.g.setImageSmoothing(false);
 
-        getChildren().add(view);
+        setSnapToPixel(true);
+        getChildren().add(canvas);
 
-        setFrame(idleFrame);
+        drawFrame(idleFrame, scale);
 
-        timeline = new Timeline(new KeyFrame(Duration.millis(1000.0 / fps), e -> nextFrame()));
+        timeline = new Timeline(new KeyFrame(Duration.millis(1000.0 / fps), e -> {
+            frame = (frame + 1) % frames;
+            drawFrame(frame, scale);
+        }));
         timeline.setCycleCount(Animation.INDEFINITE);
     }
 
-    private void nextFrame() {
-        frame = (frame + 1) % frames;
-        setFrame(frame);
-    }
-
-    private void setFrame(int i) {
+    private void drawFrame(int i, int scale) {
         int col = i % cols;
-        int row = i / cols; // row-major order
-        int x = col * frameW;
-        int y = row * frameH;
-        view.setViewport(new Rectangle2D(x, y, frameW, frameH));
+        int row = i / cols;
+
+        double sx = col * frameW;
+        double sy = row * frameH;
+
+        g.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
+        g.drawImage(sheet,
+                sx, sy, frameW, frameH,          // source rect
+                0, 0, frameW * scale, frameH * scale // dest rect
+        );
     }
 
     public void startDancing() {
@@ -71,6 +75,6 @@ public class DancerSprite extends StackPane {
     public void stopDancing() {
         timeline.stop();
         frame = idleFrame;
-        setFrame(idleFrame);
+        drawFrame(idleFrame, (int)(canvas.getWidth() / frameW));
     }
 }

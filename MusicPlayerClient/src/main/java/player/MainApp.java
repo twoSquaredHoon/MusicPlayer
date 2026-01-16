@@ -45,13 +45,13 @@ public class MainApp extends Application {
         nowPlaying.setText("Loaded " + playlist.size() + " tracks from: " + folder.getFileName());
 
         dancer = new DancerSprite(
-        "/sprites/dancer.png",
-        192, 160,   // sheet width / height
-        6, 5,       // cols, rows
-        30,          // frames to animate
-        0,          // idle frame
-        10,         // fps
-        4           // scale
+            "/sprites/dancer.png",
+            192, 160,   // sheet width / height
+            6, 5,       // cols, rows
+            30,          // frames to animate
+            0,          // idle frame
+            3,         // fps
+            4           // scale
         );
 
         // 2) Auto-advance when track ends
