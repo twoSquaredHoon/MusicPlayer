@@ -25,12 +25,19 @@ MusicPlayerClient/
 ├─ gradlew
 ├─ gradlew.bat
 ├─ gradle/
-└─ src/main/java/player/
-   ├─ Main.java          # CLI entry point
-   ├─ MainApp.java       # JavaFX GUI entry point
-   ├─ Track.java         # Single track abstraction
-   ├─ Playlist.java      # Library + navigation logic
-   └─ PlayerEngine.java  # JavaFX MediaPlayer wrapper
+└─ src/
+   └─ main/
+      ├─ java/
+      │  └─ player/
+      │     ├─ Main.java          # CLI entry point
+      │     ├─ MainApp.java       # JavaFX GUI entry point
+      │     ├─ DancerSprite.java  # Sprite-sheet dancer animation (play = dance, stop = idle)
+      │     ├─ Track.java         # Single track abstraction
+      │     ├─ Playlist.java      # Library + navigation logic
+      │     └─ PlayerEngine.java  # JavaFX MediaPlayer wrapper
+      └─ resources/
+         └─ sprites/
+            └─ dancer.png         # Sprite sheet asset
 ```
 ### Architecture Overview
 
