@@ -4,7 +4,11 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
+import javafx.scene.canvas.Canvas;
+import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.*;
 import javafx.stage.DirectoryChooser;
@@ -139,13 +143,52 @@ public class MainApp extends Application {
         root.setPadding(new Insets(10));
         VBox.setVgrow(listView, Priority.ALWAYS);
 
+        // Create room background with dancer on top
+        StackPane dancerArea = createDancerArea();
+
         BorderPane layout = new BorderPane();
         layout.setCenter(root);
-        layout.setRight(dancer);
-        BorderPane.setMargin(dancer, new Insets(10));
+        layout.setRight(dancerArea);
+        BorderPane.setMargin(dancerArea, new Insets(10));
 
         stage.setScene(new Scene(layout, 820, 480));
         stage.show();
+    }
+
+    /**
+     * Creates a StackPane with room background and dancer sprite layered on top
+     */
+    private StackPane createDancerArea() {
+        StackPane container = new StackPane();
+        container.setSnapToPixel(true);
+        
+        try {
+            // Load room background image
+            Image roomImage = new Image(getClass().getResourceAsStream("/sprites/room.png"));
+            
+            // Create canvas for pixel-perfect rendering (matching DancerSprite approach)
+            int scale = 4; // Match dancer scale
+            Canvas roomCanvas = new Canvas(roomImage.getWidth() * scale, roomImage.getHeight() * scale);
+            GraphicsContext gc = roomCanvas.getGraphicsContext2D();
+            gc.setImageSmoothing(false); // Crisp pixel art
+            
+            // Draw scaled room background
+            gc.drawImage(roomImage,
+                    0, 0, roomImage.getWidth(), roomImage.getHeight(),           // source
+                    0, 0, roomImage.getWidth() * scale, roomImage.getHeight() * scale  // dest
+            );
+            
+            // Add background canvas first, then dancer on top
+            container.getChildren().addAll(roomCanvas, dancer);
+            
+        } catch (Exception e) {
+            System.err.println("Could not load room background: " + e.getMessage());
+            e.printStackTrace();
+            // Fallback: just add dancer without background
+            container.getChildren().add(dancer);
+        }
+        
+        return container;
     }
 
     private void playSelectedOrCurrent() {
