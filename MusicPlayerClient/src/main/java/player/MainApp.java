@@ -24,7 +24,8 @@ public class MainApp extends Application {
 
     private final ListView<Track> listView = new ListView<>();
     private final Label nowPlaying = new Label("Now: (nothing)");
-
+    
+    private DancerSprite dancer;
     private boolean paused = false;
 
     @Override
@@ -43,6 +44,16 @@ public class MainApp extends Application {
         listView.getItems().setAll(playlist.all());
         nowPlaying.setText("Loaded " + playlist.size() + " tracks from: " + folder.getFileName());
 
+        dancer = new DancerSprite(
+        "/sprites/dancer.png",
+        192, 160,   // sheet width / height
+        6, 5,       // cols, rows
+        30,          // frames to animate
+        0,          // idle frame
+        10,         // fps
+        4           // scale
+        );
+
         // 2) Auto-advance when track ends
         engine.setOnEnd(() -> {
             Track t = playlist.next();
@@ -51,6 +62,7 @@ public class MainApp extends Application {
                 Platform.runLater(() -> {
                     listView.getSelectionModel().select(playlist.index());
                     nowPlaying.setText("Now: " + t.displayName());
+                    dancer.startDancing();
                 });
             }
         });
@@ -70,10 +82,28 @@ public class MainApp extends Application {
         vol.valueProperty().addListener((obs, oldV, newV) -> engine.setVolume(newV.doubleValue()));
 
         // 4) Button actions
-        playBtn.setOnAction(e -> playSelectedOrCurrent());
-        pauseBtn.setOnAction(e -> { engine.pause(); paused = true; });
-        resumeBtn.setOnAction(e -> { engine.resume(); paused = false; });
-        stopBtn.setOnAction(e -> { engine.stop(); paused = false; });
+        playBtn.setOnAction(e -> {
+            playSelectedOrCurrent();
+            dancer.startDancing();
+        });
+
+        pauseBtn.setOnAction(e -> {
+            engine.pause();
+            dancer.stopDancing();
+            paused = true;
+        });
+
+        resumeBtn.setOnAction(e -> {
+            engine.resume();
+            dancer.startDancing();
+            paused = false;
+        });
+
+        stopBtn.setOnAction(e -> {
+            engine.stop();
+            dancer.stopDancing();
+            paused = false;
+        });
 
         prevBtn.setOnAction(e -> {
             Track t = playlist.prev();
@@ -109,7 +139,12 @@ public class MainApp extends Application {
         root.setPadding(new Insets(10));
         VBox.setVgrow(listView, Priority.ALWAYS);
 
-        stage.setScene(new Scene(root, 720, 480));
+        BorderPane layout = new BorderPane();
+        layout.setCenter(root);
+        layout.setRight(dancer);
+        BorderPane.setMargin(dancer, new Insets(10));
+
+        stage.setScene(new Scene(layout, 820, 480));
         stage.show();
     }
 
