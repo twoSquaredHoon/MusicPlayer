@@ -1,0 +1,14 @@
+{
+    "name": {
+        "first": "Seunghoon",
+        "last": "Lee"
+    },
+    "fromWisconsin": false,
+    "numCredits": 18,
+    "major": "Computer Sciences",
+    "interests": [
+        "cooking",
+        "sleeping",
+        "gym"
+    ]
+}
