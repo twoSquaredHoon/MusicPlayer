@@ -31,7 +31,6 @@ import java.util.Set;
 import javafx.animation.Timeline;
 import javafx.animation.KeyFrame;
 
-
 public class MainApp extends Application {
 
     private static final Set<String> EXT = Set.of("mp3", "m4a", "aac", "wav");
@@ -97,10 +96,23 @@ public class MainApp extends Application {
     private boolean loopOnceArmed = false;
 
     private Slider progress;
-private final Label timeLabel = new Label("0:00 / 0:00");
-private Timeline progressTimer;
-private boolean userScrubbing = false;
+    private final Label timeLabel = new Label("0:00 / 0:00");
+    private Timeline progressTimer;
+    private boolean userScrubbing = false;
 
+    private static final String APP_STYLE_NORMAL = """
+                -fx-background-color: rgba(255,255,255,0.10);
+                -fx-text-fill: white;
+                -fx-font-size: 11;
+                -fx-background-radius: 12;
+            """;
+
+    private static final String APP_STYLE_ACTIVE = """
+                -fx-background-color: #4caf50;
+                -fx-text-fill: black;
+                -fx-font-size: 11;
+                -fx-background-radius: 12;
+            """;
 
     @Override
     public void start(Stage stage) throws Exception {
@@ -136,111 +148,113 @@ private boolean userScrubbing = false;
 
     // ---------------- Phone construction ----------------
 
- private VBox createPhone(Stage stage) throws Exception {
-    VBox box = new VBox(10);
-    box.setPrefSize(PHONE_W, PHONE_H);
-    box.setMinSize(PHONE_W, PHONE_H);
-    box.setMaxSize(PHONE_W, PHONE_H);
+    private VBox createPhone(Stage stage) throws Exception {
+        VBox box = new VBox(10);
+        box.setPrefSize(PHONE_W, PHONE_H);
+        box.setMinSize(PHONE_W, PHONE_H);
+        box.setMaxSize(PHONE_W, PHONE_H);
 
-    box.setPadding(new Insets(14));
-    box.setAlignment(Pos.TOP_CENTER);
-    box.setStyle("""
-            -fx-background-color: rgba(18,18,18,0.97);
-            -fx-background-radius: 28;
-            -fx-border-radius: 28;
-            -fx-border-color: rgba(255,255,255,0.18);
-        """);
+        box.setPadding(new Insets(14));
+        box.setAlignment(Pos.TOP_CENTER);
+        box.setStyle("""
+                    -fx-background-color: rgba(18,18,18,0.97);
+                    -fx-background-radius: 28;
+                    -fx-border-radius: 28;
+                    -fx-border-color: rgba(255,255,255,0.18);
+                """);
 
-    Label title = new Label("999K");
-    title.setStyle("""
-            -fx-text-fill: white;
-            -fx-font-size: 14;
-            -fx-font-weight: bold;
-        """);
+        Label title = new Label("999K");
+        title.setStyle("""
+                    -fx-text-fill: white;
+                    -fx-font-size: 14;
+                    -fx-font-weight: bold;
+                """);
 
-    // Build screens
-    launcherScreen = buildLauncherScreen();
-    musicListScreen = buildMusicListScreen();
-    musicPlayerScreen = buildMusicPlayerScreen();
+        // Build screens
+        launcherScreen = buildLauncherScreen();
+        musicListScreen = buildMusicListScreen();
+        musicPlayerScreen = buildMusicPlayerScreen();
 
-    // default screen
-    showScreen(Screen.LAUNCHER);
+        // default screen
+        showScreen(Screen.LAUNCHER);
 
-    box.getChildren().addAll(title, launcherScreen, musicListScreen, musicPlayerScreen);
+        box.getChildren().addAll(title, launcherScreen, musicListScreen, musicPlayerScreen);
 
-    // anchor phone bottom-left
-    StackPane.setAlignment(box, Pos.BOTTOM_LEFT);
-    StackPane.setMargin(box, new Insets(16));
+        // anchor phone bottom-left
+        StackPane.setAlignment(box, Pos.BOTTOM_LEFT);
+        StackPane.setMargin(box, new Insets(16));
 
-    // allow clicks inside phone (and prevent passing through)
-    box.setOnMousePressed(e -> e.consume());
+        // allow clicks inside phone (and prevent passing through)
+        box.setOnMousePressed(e -> e.consume());
 
-    // Load music folder once (for now)
-    Path folder = getFolderFromArgsOrPrompt(stage);
-    if (folder != null && Files.isDirectory(folder)) {
-        playlist.loadFromFolder(folder);
-        musicList.getItems().setAll(playlist.all());
-    }
-
-    // Auto-advance (3-stage loop + mix + normal next) - MUST update UI on FX thread
-    engine.setOnEnd(() -> Platform.runLater(() -> {
-    if (playlist.isEmpty()) {
-        engine.stop();
-        isPlaying = false;
-        isPaused = false;
-        if (playPauseBtn != null) playPauseBtn.setText("Play");
-        statusBar.setText("Stopped");
-        return;
-    }
-
-    Track next;
-
-    if (loopMode == LoopMode.REPEAT) {
-        // repeat forever (button stays On)
-        next = playlist.current();
-
-    } else if (loopMode == LoopMode.ONCE) {
-        if (loopOnceArmed) {
-            // ✅ FIRST end: do the one extra repeat,
-            // but immediately reset UI/state to OFF like you want.
-            loopOnceArmed = false;
-            loopMode = LoopMode.OFF;
-            if (loopBtn != null) updateLoopButton(loopBtn);  // Loop button flips to Off NOW
-
-            next = playlist.current(); // replay one time
-        } else {
-            // SECOND end: now it advances normally (since loopMode is already OFF)
-            next = pickNextTrackOnEnd();
+        // Load music folder once (for now)
+        Path folder = getFolderFromArgsOrPrompt(stage);
+        if (folder != null && Files.isDirectory(folder)) {
+            playlist.loadFromFolder(folder);
+            musicList.getItems().setAll(playlist.all());
         }
 
-    } else {
-        // OFF: normal advance
-        next = pickNextTrackOnEnd();
+        // Auto-advance (3-stage loop + mix + normal next) - MUST update UI on FX thread
+        engine.setOnEnd(() -> Platform.runLater(() -> {
+            if (playlist.isEmpty()) {
+                engine.stop();
+                isPlaying = false;
+                isPaused = false;
+                if (playPauseBtn != null)
+                    playPauseBtn.setText("Play");
+                statusBar.setText("Stopped");
+                return;
+            }
+
+            Track next;
+
+            if (loopMode == LoopMode.REPEAT) {
+                // repeat forever (button stays On)
+                next = playlist.current();
+
+            } else if (loopMode == LoopMode.ONCE) {
+                if (loopOnceArmed) {
+                    // ✅ FIRST end: do the one extra repeat,
+                    // but immediately reset UI/state to OFF like you want.
+                    loopOnceArmed = false;
+                    loopMode = LoopMode.OFF;
+                    if (loopBtn != null)
+                        updateLoopButton(loopBtn); // Loop button flips to Off NOW
+
+                    next = playlist.current(); // replay one time
+                } else {
+                    // SECOND end: now it advances normally (since loopMode is already OFF)
+                    next = pickNextTrackOnEnd();
+                }
+
+            } else {
+                // OFF: normal advance
+                next = pickNextTrackOnEnd();
+            }
+
+            if (next != null) {
+                engine.play(next);
+                startProgressTimer();
+
+                isPlaying = true;
+                isPaused = false;
+                if (playPauseBtn != null)
+                    playPauseBtn.setText("Pause");
+                statusBar.setText("Playing");
+                nowTrack.setText(next.displayName());
+                musicList.getSelectionModel().select(playlist.index());
+            } else {
+                engine.stop();
+                isPlaying = false;
+                isPaused = false;
+                if (playPauseBtn != null)
+                    playPauseBtn.setText("Play");
+                statusBar.setText("Stopped");
+            }
+        }));
+
+        return box;
     }
-
-    if (next != null) {
-        engine.play(next);
-        startProgressTimer();
-
-        isPlaying = true;
-        isPaused = false;
-        if (playPauseBtn != null) playPauseBtn.setText("Pause");
-        statusBar.setText("Playing");
-        nowTrack.setText(next.displayName());
-        musicList.getSelectionModel().select(playlist.index());
-    } else {
-        engine.stop();
-        isPlaying = false;
-        isPaused = false;
-        if (playPauseBtn != null) playPauseBtn.setText("Play");
-        statusBar.setText("Stopped");
-    }
-}));
-
-
-    return box;
-}
-
 
     private VBox buildLauncherScreen() {
         VBox v = new VBox(10);
@@ -260,20 +274,15 @@ private boolean userScrubbing = false;
             String name = apps[i];
 
             Button tile = new Button(name);
-            tile.setPrefSize(64, 64); // square
+            tile.setPrefSize(64, 64);
             tile.setMinSize(64, 64);
             tile.setMaxSize(64, 64);
             tile.setFocusTraversable(true);
 
-            tile.setStyle("""
-                        -fx-background-color: rgba(255,255,255,0.10);
-                        -fx-text-fill: white;
-                        -fx-font-size: 11;
-                        -fx-background-radius: 12;
-                    """);
+            tile.setStyle(APP_STYLE_NORMAL); // ✅ only set style once
 
             final int idx = i;
-            tile.setOnAction(e -> openAppByIndex(idx)); // mouse click opens too
+            tile.setOnAction(e -> openAppByIndex(idx));
 
             appTiles.add(tile);
 
@@ -284,13 +293,23 @@ private boolean userScrubbing = false;
 
         VBox.setVgrow(grid, Priority.ALWAYS);
         v.getChildren().addAll(header, grid);
+
+        updateAppTileStyles(); // ✅ highlight current selection on build
         return v;
+    }
+
+    private void updateAppTileStyles() {
+        for (int i = 0; i < appTiles.size(); i++) {
+            Button b = appTiles.get(i);
+            b.setStyle(i == appFocus ? APP_STYLE_ACTIVE : APP_STYLE_NORMAL);
+        }
     }
 
     private void focusAppTile(int idx) {
         if (appTiles.isEmpty())
             return;
         appFocus = Math.max(0, Math.min(appTiles.size() - 1, idx));
+        updateAppTileStyles();
         Platform.runLater(() -> appTiles.get(appFocus).requestFocus());
     }
 
@@ -381,18 +400,18 @@ private boolean userScrubbing = false;
         statusBar.setStyle("-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 11;");
         timeLabel.setStyle("-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 11;");
 
-progress = new Slider(0, 1, 0);
-progress.setMaxWidth(PHONE_W - 28);
-progress.setFocusTraversable(true);
+        progress = new Slider(0, 1, 0);
+        progress.setMaxWidth(PHONE_W - 28);
+        progress.setFocusTraversable(true);
 
-progress.setOnMousePressed(e -> userScrubbing = true);
-progress.setOnMouseReleased(e -> {
-    double total = engine.getTotalSeconds();
-    if (total > 0.001) {
-        engine.seekSeconds(progress.getValue() * total);
-    }
-    userScrubbing = false;
-});
+        progress.setOnMousePressed(e -> userScrubbing = true);
+        progress.setOnMouseReleased(e -> {
+            double total = engine.getTotalSeconds();
+            if (total > 0.001) {
+                engine.seekSeconds(progress.getValue() * total);
+            }
+            userScrubbing = false;
+        });
 
         // Controls row
         Button prev = new Button("Prev");
@@ -462,8 +481,8 @@ progress.setOnMouseReleased(e -> {
             statusBar.setText("Stopped");
             playPauseBtn.setText("Play");
             stopProgressTimer();
-progress.setValue(0);
-timeLabel.setText("0:00 / 0:00");
+            progress.setValue(0);
+            timeLabel.setText("0:00 / 0:00");
         });
 
         HBox row1 = new HBox(6, prev, playPauseBtn, stop, next);
@@ -471,34 +490,40 @@ timeLabel.setText("0:00 / 0:00");
 
         // Loop + Mix row
 
-
-
         // Loop + Mix row
-loopBtn = new Button();                // ✅ assign the FIELD, not a local var
-updateLoopButton(loopBtn);
+        loopBtn = new Button(); // ✅ assign the FIELD, not a local var
+        updateLoopButton(loopBtn);
 
-ToggleButton mixBtn = new ToggleButton("Mix");
+        ToggleButton mixBtn = new ToggleButton("Mix");
 
-loopBtn.setOnAction(e -> {
-    loopMode = switch (loopMode) {
-        case OFF -> { loopOnceArmed = true;  yield LoopMode.ONCE; }
-        case ONCE -> { loopOnceArmed = false; yield LoopMode.REPEAT; }
-        case REPEAT -> { loopOnceArmed = false; yield LoopMode.OFF; }
-    };
-    updateLoopButton(loopBtn);
-});
+        loopBtn.setOnAction(e -> {
+            loopMode = switch (loopMode) {
+                case OFF -> {
+                    loopOnceArmed = true;
+                    yield LoopMode.ONCE;
+                }
+                case ONCE -> {
+                    loopOnceArmed = false;
+                    yield LoopMode.REPEAT;
+                }
+                case REPEAT -> {
+                    loopOnceArmed = false;
+                    yield LoopMode.OFF;
+                }
+            };
+            updateLoopButton(loopBtn);
+        });
 
-mixBtn.setOnAction(e -> {
-    mix = mixBtn.isSelected();
-    mixBtn.setStyle(mix ? "-fx-background-color: #ff9800; -fx-text-fill: black;" : "");
-});
+        mixBtn.setOnAction(e -> {
+            mix = mixBtn.isSelected();
+            mixBtn.setStyle(mix ? "-fx-background-color: #ff9800; -fx-text-fill: black;" : "");
+        });
 
-playerBtns.clear();
-playerBtns.addAll(List.of(prev, playPauseBtn, stop, next, loopBtn, mixBtn));
+        playerBtns.clear();
+        playerBtns.addAll(List.of(prev, playPauseBtn, stop, next, loopBtn, mixBtn));
 
-HBox row2 = new HBox(8, loopBtn, mixBtn);
-row2.setAlignment(Pos.CENTER);
-
+        HBox row2 = new HBox(8, loopBtn, mixBtn);
+        row2.setAlignment(Pos.CENTER);
 
         v.getChildren().addAll(artWrap, nowTrack, statusBar, timeLabel, progress, row1, row2);
         return v;
@@ -811,42 +836,48 @@ row2.setAlignment(Pos.CENTER);
     }
 
     private static String mmss(double seconds) {
-    if (seconds < 0) seconds = 0;
-    int s = (int) Math.floor(seconds + 0.0001);
-    int m = s / 60;
-    s = s % 60;
-    return m + ":" + String.format("%02d", s);
-}
+        if (seconds < 0)
+            seconds = 0;
+        int s = (int) Math.floor(seconds + 0.0001);
+        int m = s / 60;
+        s = s % 60;
+        return m + ":" + String.format("%02d", s);
+    }
 
-private void startProgressTimer() {
-    if (progressTimer != null) progressTimer.stop();
+    private void startProgressTimer() {
+        if (progressTimer != null)
+            progressTimer.stop();
 
-    progressTimer = new Timeline(new KeyFrame(Duration.millis(200), e -> {
-        if (progress == null) return;
-        if (!isPlaying) return;
+        progressTimer = new Timeline(new KeyFrame(Duration.millis(200), e -> {
+            if (progress == null)
+                return;
+            if (!isPlaying)
+                return;
 
-        double cur = engine.getCurrentSeconds();
-        double total = engine.getTotalSeconds();
+            double cur = engine.getCurrentSeconds();
+            double total = engine.getTotalSeconds();
 
-        if (total <= 0.001) {
-            timeLabel.setText(mmss(cur) + " / 0:00");
-            if (!userScrubbing) progress.setValue(0);
-            return;
-        }
+            if (total <= 0.001) {
+                timeLabel.setText(mmss(cur) + " / 0:00");
+                if (!userScrubbing)
+                    progress.setValue(0);
+                return;
+            }
 
-        timeLabel.setText(mmss(cur) + " / " + mmss(total));
+            timeLabel.setText(mmss(cur) + " / " + mmss(total));
 
-        if (!userScrubbing) {
-            progress.setValue(cur / total);
-        }
-    }));
-    progressTimer.setCycleCount(Timeline.INDEFINITE);
-    progressTimer.play();
-}
+            if (!userScrubbing) {
+                progress.setValue(cur / total);
+            }
+        }));
+        progressTimer.setCycleCount(Timeline.INDEFINITE);
+        progressTimer.play();
+    }
 
-private void stopProgressTimer() {
-    if (progressTimer != null) progressTimer.stop();
-}
+    private void stopProgressTimer() {
+        if (progressTimer != null)
+            progressTimer.stop();
+    }
 
     @Override
     public void stop() {
