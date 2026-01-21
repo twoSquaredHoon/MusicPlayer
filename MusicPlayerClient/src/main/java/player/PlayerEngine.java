@@ -126,4 +126,19 @@ public class PlayerEngine {
         });
         try { latch.await(); } catch (InterruptedException ignored) {}
     }
+
+    // PlayerEngine.java
+public double getCurrentSeconds() {
+    return (player == null) ? 0.0 : player.getCurrentTime().toSeconds();
+}
+
+public double getTotalSeconds() {
+    return (player == null || player.getTotalDuration() == null) ? 0.0 : player.getTotalDuration().toSeconds();
+}
+
+public void seekSeconds(double seconds) {
+    if (player == null) return;
+    player.seek(Duration.seconds(seconds));
+}
+
 }

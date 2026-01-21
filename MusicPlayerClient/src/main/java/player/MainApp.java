@@ -1,5 +1,6 @@
 package player;
 
+import javafx.animation.Timeline;
 import javafx.animation.TranslateTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
@@ -26,6 +27,10 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+
+import javafx.animation.Timeline;
+import javafx.animation.KeyFrame;
+
 
 public class MainApp extends Application {
 
@@ -90,6 +95,12 @@ public class MainApp extends Application {
 
     private LoopMode loopMode = LoopMode.OFF;
     private boolean loopOnceArmed = false;
+
+    private Slider progress;
+private final Label timeLabel = new Label("0:00 / 0:00");
+private Timeline progressTimer;
+private boolean userScrubbing = false;
+
 
     @Override
     public void start(Stage stage) throws Exception {
@@ -209,6 +220,8 @@ public class MainApp extends Application {
 
     if (next != null) {
         engine.play(next);
+        startProgressTimer();
+
         isPlaying = true;
         isPaused = false;
         if (playPauseBtn != null) playPauseBtn.setText("Pause");
@@ -366,6 +379,20 @@ public class MainApp extends Application {
 
         // Status bar (under track)
         statusBar.setStyle("-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 11;");
+        timeLabel.setStyle("-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 11;");
+
+progress = new Slider(0, 1, 0);
+progress.setMaxWidth(PHONE_W - 28);
+progress.setFocusTraversable(true);
+
+progress.setOnMousePressed(e -> userScrubbing = true);
+progress.setOnMouseReleased(e -> {
+    double total = engine.getTotalSeconds();
+    if (total > 0.001) {
+        engine.seekSeconds(progress.getValue() * total);
+    }
+    userScrubbing = false;
+});
 
         // Controls row
         Button prev = new Button("Prev");
@@ -377,6 +404,8 @@ public class MainApp extends Application {
             Track t = playlist.prev();
             if (t != null) {
                 engine.play(t);
+                startProgressTimer();
+
                 isPlaying = true;
                 isPaused = false;
                 playPauseBtn.setText("Pause");
@@ -391,6 +420,8 @@ public class MainApp extends Application {
             Track t = pickNextManual(); // respects Mix
             if (t != null) {
                 engine.play(t);
+                startProgressTimer();
+
                 isPlaying = true;
                 isPaused = false;
                 playPauseBtn.setText("Pause");
@@ -430,6 +461,9 @@ public class MainApp extends Application {
             isPaused = false;
             statusBar.setText("Stopped");
             playPauseBtn.setText("Play");
+            stopProgressTimer();
+progress.setValue(0);
+timeLabel.setText("0:00 / 0:00");
         });
 
         HBox row1 = new HBox(6, prev, playPauseBtn, stop, next);
@@ -466,7 +500,7 @@ HBox row2 = new HBox(8, loopBtn, mixBtn);
 row2.setAlignment(Pos.CENTER);
 
 
-        v.getChildren().addAll(artWrap, nowTrack, statusBar, row1, row2);
+        v.getChildren().addAll(artWrap, nowTrack, statusBar, timeLabel, progress, row1, row2);
         return v;
     }
 
@@ -626,6 +660,8 @@ row2.setAlignment(Pos.CENTER);
             return;
 
         engine.play(t);
+        startProgressTimer();
+
         isPlaying = true;
 
         // update player state/UI
@@ -773,6 +809,44 @@ row2.setAlignment(Pos.CENTER);
         File chosen = dc.showDialog(stage);
         return (chosen == null) ? null : chosen.toPath();
     }
+
+    private static String mmss(double seconds) {
+    if (seconds < 0) seconds = 0;
+    int s = (int) Math.floor(seconds + 0.0001);
+    int m = s / 60;
+    s = s % 60;
+    return m + ":" + String.format("%02d", s);
+}
+
+private void startProgressTimer() {
+    if (progressTimer != null) progressTimer.stop();
+
+    progressTimer = new Timeline(new KeyFrame(Duration.millis(200), e -> {
+        if (progress == null) return;
+        if (!isPlaying) return;
+
+        double cur = engine.getCurrentSeconds();
+        double total = engine.getTotalSeconds();
+
+        if (total <= 0.001) {
+            timeLabel.setText(mmss(cur) + " / 0:00");
+            if (!userScrubbing) progress.setValue(0);
+            return;
+        }
+
+        timeLabel.setText(mmss(cur) + " / " + mmss(total));
+
+        if (!userScrubbing) {
+            progress.setValue(cur / total);
+        }
+    }));
+    progressTimer.setCycleCount(Timeline.INDEFINITE);
+    progressTimer.play();
+}
+
+private void stopProgressTimer() {
+    if (progressTimer != null) progressTimer.stop();
+}
 
     @Override
     public void stop() {
