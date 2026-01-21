@@ -11,6 +11,7 @@ All commands must be executed from:
 ```
 MusicPlayer/MusicPlayerClient/
 ```
+Run the commands in the following order
 Build
 ```
 ./gradlew installDist
@@ -19,7 +20,7 @@ Run — CLI
 ```
 ./build/install/MusicPlayerClient/bin/MusicPlayerClient "<music-folder>"
 ```
-Run — GUI (Recommended)
+Run — GUI
 ```
 ./gradlew run --args="/path/to/music-folder"
 ```
