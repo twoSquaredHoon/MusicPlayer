@@ -315,47 +315,66 @@ private void openAppByIndex(int idx) {
         Button next = new Button("Next");
 
         prev.setOnAction(e -> {
-            Track t = playlist.prev();
-            if (t != null) {
-                engine.play(t);
-                musicList.getSelectionModel().select(playlist.index());
-                nowTrack.setText(t.displayName());
-                statusBar.setText("Playing");
-            }
-        });
+    Track t = playlist.prev();
+    if (t != null) {
+        engine.play(t);
+        isPlaying = true;
+        isPaused = false;
+        playPauseBtn.setText("Pause");
 
-        next.setOnAction(e -> {
-            Track t = pickNextManual(); // respects Mix
-            if (t != null) {
-                engine.play(t);
-                musicList.getSelectionModel().select(playlist.index());
-                nowTrack.setText(t.displayName());
-                statusBar.setText("Playing");
-            }
-        });
+        musicList.getSelectionModel().select(playlist.index());
+        nowTrack.setText(t.displayName());
+        statusBar.setText("Playing");
+    }
+});
 
-        playPauseBtn.setOnAction(e -> {
-            if (!isPaused) {
-                engine.pause();
-                playPauseBtn.setText("Play");
-                statusBar.setText("Paused");
-                isPaused = true;
-            } else {
-                engine.resume();
-                playPauseBtn.setText("Pause");
-                statusBar.setText("Playing");
-                isPaused = false;
-            }
-        });
+next.setOnAction(e -> {
+    Track t = pickNextManual(); // respects Mix
+    if (t != null) {
+        engine.play(t);
+        isPlaying = true;
+        isPaused = false;
+        playPauseBtn.setText("Pause");
+
+        musicList.getSelectionModel().select(playlist.index());
+        nowTrack.setText(t.displayName());
+        statusBar.setText("Playing");
+    }
+});
+
+
+    playPauseBtn.setOnAction(e -> {
+    if (!isPlaying) {
+        playSelectedTrack();          // must call engine.play(track) inside
+        isPlaying = true;
+        isPaused = false;
+        playPauseBtn.setText("Pause");
+        statusBar.setText("Playing");
+        return;
+    }
+
+    if (!isPaused) {
+        engine.pause();
+        isPaused = true;
+        playPauseBtn.setText("Play");
+        statusBar.setText("Paused");
+    } else {
+        engine.resume();
+        isPaused = false;
+        playPauseBtn.setText("Pause");
+        statusBar.setText("Playing");
+    }
+});
+
+
 
         stop.setOnAction(e -> {
-            engine.stop();
-            isPlaying = false;
-            statusBar.setText("Stopped");
-            playPauseBtn.setText("Play");
-            isPaused = true;
-        });
-
+    engine.stop();
+    isPlaying = false;
+    isPaused = false;          // <- important
+    statusBar.setText("Stopped");
+    playPauseBtn.setText("Play");
+});
         HBox row1 = new HBox(6, prev, playPauseBtn, stop, next);
         row1.setAlignment(Pos.CENTER);
 
@@ -383,6 +402,20 @@ private void openAppByIndex(int idx) {
         v.getChildren().addAll(artWrap, nowTrack, statusBar, row1, row2);
         return v;
     }
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
 
     private javafx.scene.image.Image loadOptionalImage(String resourcePath) {
         try (var in = getClass().getResourceAsStream(resourcePath)) {
@@ -540,31 +573,22 @@ private void openAppByIndex(int idx) {
     }
 
     private void movePlayerFocus(KeyCode code) {
-        // layout: [0 prev, 1 pause, 2 resume, 3 stop, 4 next] on top row
-        // [5 loop, 6 mix] on bottom row
-        int i = playerFocus;
+    // indices: 0 prev, 1 play/pause, 2 stop, 3 next, 4 loop, 5 mix
+    int i = playerFocus;
 
-        if (i <= 4) { // top row
-            if (code == KeyCode.LEFT)
-                focusPlayerBtn(Math.max(0, i - 1));
-            if (code == KeyCode.RIGHT)
-                focusPlayerBtn(Math.min(4, i + 1));
-            if (code == KeyCode.DOWN)
-                focusPlayerBtn(i <= 2 ? 5 : 6); // down to loop/mix
-            if (code == KeyCode.UP)
-                focusPlayerBtn(i); // stay
-        } else { // bottom row
-            if (code == KeyCode.LEFT || code == KeyCode.RIGHT) {
-                focusPlayerBtn(i == 5 ? 6 : 5); // toggle between loop/mix
-            }
-            if (code == KeyCode.UP) {
-                focusPlayerBtn(i == 5 ? 2 : 3); // up to resume/stop
-            }
-            if (code == KeyCode.DOWN) {
-                focusPlayerBtn(i); // stay
-            }
-        }
+    boolean topRow = (i <= 3);
+    if (topRow) {
+        if (code == KeyCode.LEFT)  focusPlayerBtn(Math.max(0, i - 1));
+        if (code == KeyCode.RIGHT) focusPlayerBtn(Math.min(3, i + 1));
+        if (code == KeyCode.DOWN)  focusPlayerBtn(i <= 1 ? 4 : 5); // prev/pause -> loop, stop/next -> mix
+        if (code == KeyCode.UP)    focusPlayerBtn(i);
+    } else { // loop/mix
+        if (code == KeyCode.LEFT || code == KeyCode.RIGHT) focusPlayerBtn(i == 4 ? 5 : 4);
+        if (code == KeyCode.UP) focusPlayerBtn(i == 4 ? 1 : 2); // loop -> pause, mix -> stop (or choose 3)
+        if (code == KeyCode.DOWN) focusPlayerBtn(i);
     }
+}
+
 
     private void fireFocusedPlayerBtn() {
         if (playerBtns.isEmpty())
