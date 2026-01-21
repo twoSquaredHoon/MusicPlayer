@@ -23,52 +23,6 @@ Run — GUI
 ```
 ./gradlew run --args="/path/to/music-folder"
 ```
-### Features
-#### Core
-
-Folder-based music library scanning
-
-Supports common audio formats (MP3, AAC/M4A, WAV)
-
-Clean separation between playlist, playback engine, and UI
-
-Cross-platform (macOS, Linux, Windows*)
-
-* Windows support depends on JavaFX media codecs.
-
-#### CLI
-
-Interactive terminal commands
-
-Full playback control (play, pause, seek, volume, next/prev)
-
-Lightweight and script-friendly
-
-#### GUI (JavaFX)
-
-Phone-style interface
-
-Album art display
-
-Keyboard navigation (arrow keys + enter)
-
-Playback controls:
-
-Play / Pause / Stop
-
-Next / Previous
-
-Mix (shuffle)
-
-Loop modes:
-
-Off
-
-Once (replays the track one extra time, then turns off automatically)
-
-Repeat (loops indefinitely)
-
-Visual feedback for playback state
 
 ### Project Structure
 ```
@@ -94,69 +48,30 @@ MusicPlayerClient/
             └─ album.png          # Default album art
 
 ```
-### Architecture Overview
-#### Track
 
-Represents a single audio file.
+### Features
+#### Core
+Folder-based music library scanning
 
-Stores file path
+#### CLI
+Interactive terminal commands
+Full playback control (play, pause, seek, volume, next/prev)
+Lightweight and script-friendly
 
-Provides display-friendly name
+#### GUI (JavaFX)
+Phone-style interface
+Album art display
+Keyboard navigation (arrow keys + enter)
 
-#### Playlist
-
-Manages the music library:
-
-Loads tracks from a folder
-
-Maintains current index
-
-Handles next / previous / shuffle logic
-
-#### PlayerEngine
-
-Encapsulates JavaFX MediaPlayer:
-
-Play, pause, resume, stop
-
-Seek and volume control
-
-End-of-track callbacks
-
-#### Main (CLI)
-
-Implements a command-line interface that delegates all logic to:
-
-Playlist
-
-PlayerEngine
-
-#### MainApp (GUI)
-
-JavaFX application that:
-
-Reuses the same Playlist and PlayerEngine
-
-Implements UI state, keyboard navigation, and loop/mix behavior
-
-This separation allows features to be added or changed in one interface without breaking the other.
-
-Supported Audio Formats
-
-MP3 (.mp3)
-
-AAC / M4A (.aac, .m4a)
-
-WAV (.wav)
-
+### Supported Audio Formats
+- MP3 (.mp3)
+- AAC / M4A (.aac, .m4a)
+- WAV (.wav)
 Note: Some Apple Music files may be DRM-protected and will not play.
 
 ### Requirements
-
 Java 17+ (recommended)
-
 JavaFX (handled automatically via Gradle)
-
 No manual Gradle installation required (uses Gradle Wrapper)
 
 ### CLI Commands
