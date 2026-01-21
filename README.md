@@ -19,7 +19,7 @@ Run — CLI
 ```
 ./build/install/MusicPlayerClient/bin/MusicPlayerClient "<music-folder>"
 ```
-Run — GUI
+Run — GUI (Recommended)
 ```
 ./gradlew run --args="/path/to/music-folder"
 ```
@@ -59,9 +59,10 @@ Full playback control (play, pause, seek, volume, next/prev)
 Lightweight and script-friendly
 
 #### GUI (JavaFX)
-Phone-style interface
-Album art display
-Keyboard navigation (arrow keys + enter)
+Can be fully navigated only using keyboard
+Arrow Keys: toogle
+Enter: Enter
+ESC: Escape
 
 ### Supported Audio Formats
 - MP3 (.mp3)
