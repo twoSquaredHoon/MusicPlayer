@@ -249,7 +249,7 @@ private Button resumeBtn;
     });
 
     next.setOnAction(e -> {
-        Track t = playlist.next();
+        Track t = pickNextManual(); // respects Mix
         if (t != null) {
             engine.play(t);
             musicList.getSelectionModel().select(playlist.index());
@@ -276,11 +276,20 @@ private Button resumeBtn;
     HBox row1 = new HBox(6, prev, pauseBtn, resumeBtn, stop, next);
     row1.setAlignment(Pos.CENTER);
 
-    // Loop + Mix row
+    // Loop + Mix row (with Mix highlight)
     ToggleButton loopBtn = new ToggleButton("Loop");
     ToggleButton mixBtn = new ToggleButton("Mix");
+
     loopBtn.setOnAction(e -> loop = loopBtn.isSelected());
-    mixBtn.setOnAction(e -> mix = mixBtn.isSelected());
+
+    mixBtn.setOnAction(e -> {
+        mix = mixBtn.isSelected();
+        if (mix) {
+            mixBtn.setStyle("-fx-background-color: #ff9800; -fx-text-fill: black;");
+        } else {
+            mixBtn.setStyle("");
+        }
+    });
 
     HBox row2 = new HBox(8, loopBtn, mixBtn);
     row2.setAlignment(Pos.CENTER);
@@ -288,6 +297,7 @@ private Button resumeBtn;
     v.getChildren().addAll(artWrap, nowTrack, statusBar, row1, row2);
     return v;
 }
+
 
 private javafx.scene.image.Image loadOptionalImage(String resourcePath) {
     try (var in = getClass().getResourceAsStream(resourcePath)) {
@@ -297,6 +307,22 @@ private javafx.scene.image.Image loadOptionalImage(String resourcePath) {
         return null;
     }
 }
+
+private Track pickNextManual() {
+    if (playlist.isEmpty()) return null;
+
+    if (mix) {
+        int n = playlist.size();
+        if (n <= 1) return playlist.current();
+        int cur = playlist.index();
+        int r;
+        do { r = rng.nextInt(n); } while (r == cur);
+        return playlist.setIndex(r);
+    }
+
+    return playlist.next();
+}
+
 
 
     // ---------------- Keyboard control logic ----------------
