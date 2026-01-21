@@ -75,6 +75,13 @@ public class MainApp extends Application {
 
     private boolean isPlaying = false;
 
+    // launcher grid
+private final String[] apps = { "Music", "Messages", "Settings", "Notes", "Map", "Camera", "Clock" };
+private final java.util.List<Button> appTiles = new java.util.ArrayList<>();
+private int appFocus = 0;
+
+private static final int APP_COLS = 3; // 3 columns grid
+
     @Override
     public void start(Stage stage) throws Exception {
         stage.setTitle("MusicPlayer");
@@ -167,34 +174,89 @@ public class MainApp extends Application {
     }
 
     private VBox buildLauncherScreen() {
-        VBox v = new VBox(8);
-        v.setAlignment(Pos.TOP_CENTER);
+    VBox v = new VBox(10);
+    v.setAlignment(Pos.TOP_CENTER);
 
-        Label header = new Label("Apps");
-        header.setStyle("-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 12;");
+    Label header = new Label("Apps");
+    header.setStyle("-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 12;");
 
-        // Add apps here (Music is the one that works right now)
-        appList.getItems().setAll(
-                "Music",
-                "Messages",
-                "Settings",
-                "Notes",
-                "Map",
-                "Camera",
-                "Clock");
+    GridPane grid = new GridPane();
+    grid.setHgap(10);
+    grid.setVgap(10);
+    grid.setAlignment(Pos.TOP_CENTER);
 
-        appList.setCellFactory(lv -> new ListCell<>() {
-            @Override
-            protected void updateItem(String item, boolean empty) {
-                super.updateItem(item, empty);
-                setText((empty || item == null) ? null : item);
-            }
-        });
+    appTiles.clear();
 
-        VBox.setVgrow(appList, Priority.ALWAYS);
-        v.getChildren().addAll(header, appList);
-        return v;
+    for (int i = 0; i < apps.length; i++) {
+        String name = apps[i];
+
+        Button tile = new Button(name);
+        tile.setPrefSize(64, 64);          // square
+        tile.setMinSize(64, 64);
+        tile.setMaxSize(64, 64);
+        tile.setFocusTraversable(true);
+
+        tile.setStyle("""
+            -fx-background-color: rgba(255,255,255,0.10);
+            -fx-text-fill: white;
+            -fx-font-size: 11;
+            -fx-background-radius: 12;
+        """);
+
+        final int idx = i;
+        tile.setOnAction(e -> openAppByIndex(idx)); // mouse click opens too
+
+        appTiles.add(tile);
+
+        int r = i / APP_COLS;
+        int c = i % APP_COLS;
+        grid.add(tile, c, r);
     }
+
+    VBox.setVgrow(grid, Priority.ALWAYS);
+    v.getChildren().addAll(header, grid);
+    return v;
+}
+
+private void focusAppTile(int idx) {
+    if (appTiles.isEmpty()) return;
+    appFocus = Math.max(0, Math.min(appTiles.size() - 1, idx));
+    Platform.runLater(() -> appTiles.get(appFocus).requestFocus());
+}
+
+private void moveAppFocus(KeyCode code) {
+    int i = appFocus;
+    int rows = (int) Math.ceil(appTiles.size() / (double) APP_COLS);
+
+    int r = i / APP_COLS;
+    int c = i % APP_COLS;
+
+    if (code == KeyCode.LEFT)  c--;
+    if (code == KeyCode.RIGHT) c++;
+    if (code == KeyCode.UP)    r--;
+    if (code == KeyCode.DOWN)  r++;
+
+    c = Math.max(0, Math.min(APP_COLS - 1, c));
+    r = Math.max(0, Math.min(rows - 1, r));
+
+    int ni = r * APP_COLS + c;
+    if (ni >= appTiles.size()) {
+        // clamp to last item in that row
+        ni = appTiles.size() - 1;
+    }
+    focusAppTile(ni);
+}
+
+private void openAppByIndex(int idx) {
+    String app = apps[idx];
+    if ("Music".equals(app)) {
+        showScreen(Screen.MUSIC_LIST);
+        Platform.runLater(musicList::requestFocus);
+    }
+    // others: do nothing for now
+}
+
+
 
     private VBox buildMusicListScreen() {
         VBox v = new VBox(8);
@@ -354,100 +416,94 @@ public class MainApp extends Application {
     // ---------------- Keyboard control logic ----------------
 
     private void attachKeyControls(Scene scene) {
-        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+    scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
 
-            // UP opens phone (only when closed)
-            if (!phoneVisible && e.getCode() == KeyCode.UP) {
-                showPhone();
-                e.consume();
-                return;
-            }
-
-            // If phone not open, ignore everything else
-            if (!phoneVisible)
-                return;
-
-            // ESC behavior: go back one level; if already launcher -> hide phone
-            if (e.getCode() == KeyCode.ESCAPE) {
-                if (screen == Screen.MUSIC_PLAYER) {
-                    showScreen(Screen.MUSIC_LIST);
-                    Platform.runLater(musicList::requestFocus);
-                } else if (screen == Screen.MUSIC_LIST) {
-                    showScreen(Screen.LAUNCHER);
-                    Platform.runLater(appList::requestFocus);
-                } else { // LAUNCHER
-                    hidePhone();
-                }
-                e.consume();
-                return;
-            }
-
-            // -------- MUSIC PLAYER: keyboard controls for buttons --------
-            if (screen == Screen.MUSIC_PLAYER) {
-                if (e.getCode() == KeyCode.LEFT || e.getCode() == KeyCode.RIGHT
-                        || e.getCode() == KeyCode.UP || e.getCode() == KeyCode.DOWN) {
-                    movePlayerFocus(e.getCode());
-                    e.consume();
-                    return;
-                }
-
-                if (e.getCode() == KeyCode.ENTER || e.getCode() == KeyCode.SPACE) {
-                    fireFocusedPlayerBtn();
-                    e.consume();
-                    return;
-                }
-
-                // block everything else while player is open
-                e.consume();
-                return;
-            }
-            // ------------------------------------------------------------
-
-            // Arrow keys should navigate whichever list is active
-            if (e.getCode() == KeyCode.UP || e.getCode() == KeyCode.DOWN) {
-                if (screen == Screen.LAUNCHER) {
-                    Platform.runLater(appList::requestFocus);
-                    return; // let ListView handle selection
-                }
-                if (screen == Screen.MUSIC_LIST) {
-                    Platform.runLater(musicList::requestFocus);
-                    return;
-                }
-            }
-
-            // ENTER behavior depends on screen
-            if (e.getCode() == KeyCode.ENTER) {
-                if (screen == Screen.LAUNCHER) {
-                    openSelectedApp();
-                    e.consume();
-                    return;
-                }
-                if (screen == Screen.MUSIC_LIST) {
-                    playSelectedTrack(); // this already switches to MUSIC_PLAYER
-                    e.consume();
-                    return;
-                }
-            }
-
-            // Phone open: block everything else
+        // UP opens phone (only when closed)
+        if (!phoneVisible && e.getCode() == KeyCode.UP) {
+            showPhone();
             e.consume();
-        });
-    }
-
-    private void openSelectedApp() {
-        int sel = appList.getSelectionModel().getSelectedIndex();
-        if (sel < 0)
-            sel = 0;
-
-        String app = appList.getItems().get(sel);
-        if ("Music".equals(app)) {
-            showScreen(Screen.MUSIC_LIST);
-            Platform.runLater(musicList::requestFocus);
-        } else {
-            // placeholder: stay on launcher for now
-            // (later: show a screen per app)
+            return;
         }
-    }
+
+        // If phone not open, ignore everything else
+        if (!phoneVisible) return;
+
+        // ESC behavior: go back one level; if already launcher -> hide phone
+        if (e.getCode() == KeyCode.ESCAPE) {
+            if (screen == Screen.MUSIC_PLAYER) {
+                showScreen(Screen.MUSIC_LIST);
+                Platform.runLater(musicList::requestFocus);
+            } else if (screen == Screen.MUSIC_LIST) {
+                showScreen(Screen.LAUNCHER);
+                Platform.runLater(() -> focusAppTile(appFocus)); // grid focus
+            } else { // LAUNCHER
+                hidePhone();
+            }
+            e.consume();
+            return;
+        }
+
+        // -------- MUSIC PLAYER: keyboard controls for buttons --------
+        if (screen == Screen.MUSIC_PLAYER) {
+            if (e.getCode() == KeyCode.LEFT || e.getCode() == KeyCode.RIGHT
+                    || e.getCode() == KeyCode.UP || e.getCode() == KeyCode.DOWN) {
+                movePlayerFocus(e.getCode());
+                e.consume();
+                return;
+            }
+
+            if (e.getCode() == KeyCode.ENTER || e.getCode() == KeyCode.SPACE) {
+                fireFocusedPlayerBtn();
+                e.consume();
+                return;
+            }
+
+            e.consume();
+            return;
+        }
+        // ------------------------------------------------------------
+
+        // -------- LAUNCHER (GRID): arrow keys move tile selection ----
+        if (screen == Screen.LAUNCHER) {
+            if (e.getCode() == KeyCode.LEFT || e.getCode() == KeyCode.RIGHT
+                    || e.getCode() == KeyCode.UP || e.getCode() == KeyCode.DOWN) {
+                moveAppFocus(e.getCode());
+                e.consume();
+                return;
+            }
+
+            if (e.getCode() == KeyCode.ENTER) {
+    openAppByIndex(appFocus);
+    e.consume();
+    return;
+}
+
+
+            e.consume();
+            return;
+        }
+        // ------------------------------------------------------------
+
+        // -------- MUSIC LIST: up/down selects, enter plays ----------
+        if (screen == Screen.MUSIC_LIST) {
+            if (e.getCode() == KeyCode.UP || e.getCode() == KeyCode.DOWN) {
+                Platform.runLater(musicList::requestFocus);
+                return; // let ListView handle selection
+            }
+
+            if (e.getCode() == KeyCode.ENTER) {
+                playSelectedTrack(); // switches to MUSIC_PLAYER
+                e.consume();
+                return;
+            }
+
+            e.consume();
+        }
+        // ------------------------------------------------------------
+    });
+}
+
+
 
     private void playSelectedTrack() {
         if (playlist.isEmpty())
