@@ -7,6 +7,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
 import javafx.scene.Scene;
+// add to imports
 import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
@@ -18,11 +19,11 @@ import javafx.util.Duration;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 
-
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Random;
 import java.util.Set;
 
@@ -41,7 +42,10 @@ public class MainApp extends Application {
     private boolean phoneVisible = false;
 
     // "Apps"
-    private enum Screen { LAUNCHER, MUSIC_LIST, MUSIC_PLAYER }
+    private enum Screen {
+        LAUNCHER, MUSIC_LIST, MUSIC_PLAYER
+    }
+
     private Screen screen = Screen.LAUNCHER;
 
     // data + playback
@@ -60,10 +64,16 @@ public class MainApp extends Application {
     private VBox musicPlayerScreen;
 
     private ImageView albumArt;
-private final Label nowTrack = new Label("");
-private final Label statusBar = new Label("Stopped");
-private Button pauseBtn;
-private Button resumeBtn;
+    private final Label nowTrack = new Label("");
+    private final Label statusBar = new Label("Stopped");
+
+    private ToggleButton playPauseBtn;
+    private boolean isPaused = false;
+
+    private final java.util.List<ButtonBase> playerBtns = new java.util.ArrayList<>();
+    private int playerFocus = 0;
+
+    private boolean isPlaying = false;
 
     @Override
     public void start(Stage stage) throws Exception {
@@ -108,18 +118,18 @@ private Button resumeBtn;
         box.setPadding(new Insets(14));
         box.setAlignment(Pos.TOP_CENTER);
         box.setStyle("""
-            -fx-background-color: rgba(18,18,18,0.97);
-            -fx-background-radius: 28;
-            -fx-border-radius: 28;
-            -fx-border-color: rgba(255,255,255,0.18);
-        """);
+                    -fx-background-color: rgba(18,18,18,0.97);
+                    -fx-background-radius: 28;
+                    -fx-border-radius: 28;
+                    -fx-border-color: rgba(255,255,255,0.18);
+                """);
 
         Label title = new Label("999K");
         title.setStyle("""
-            -fx-text-fill: white;
-            -fx-font-size: 14;
-            -fx-font-weight: bold;
-        """);
+                    -fx-text-fill: white;
+                    -fx-font-size: 14;
+                    -fx-font-weight: bold;
+                """);
 
         // Build screens
         launcherScreen = buildLauncherScreen();
@@ -147,8 +157,10 @@ private Button resumeBtn;
 
         // Auto-advance (loop/mix/next)
         engine.setOnEnd(() -> {
+            isPlaying = true; // still playing next track
             Track next = pickNextTrackOnEnd();
-            if (next != null) engine.play(next);
+            if (next != null)
+                engine.play(next);
         });
 
         return box;
@@ -167,11 +179,13 @@ private Button resumeBtn;
                 "Messages",
                 "Settings",
                 "Notes",
-                "Map"
-        );
+                "Map",
+                "Camera",
+                "Clock");
 
         appList.setCellFactory(lv -> new ListCell<>() {
-            @Override protected void updateItem(String item, boolean empty) {
+            @Override
+            protected void updateItem(String item, boolean empty) {
                 super.updateItem(item, empty);
                 setText((empty || item == null) ? null : item);
             }
@@ -190,7 +204,8 @@ private Button resumeBtn;
         header.setStyle("-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 12;");
 
         musicList.setCellFactory(lv -> new ListCell<>() {
-            @Override protected void updateItem(Track item, boolean empty) {
+            @Override
+            protected void updateItem(Track item, boolean empty) {
                 super.updateItem(item, empty);
                 setText((empty || item == null) ? null : item.displayName());
             }
@@ -202,128 +217,139 @@ private Button resumeBtn;
     }
 
     private VBox buildMusicPlayerScreen() {
-    VBox v = new VBox(10);
-    v.setAlignment(Pos.TOP_CENTER);
-    v.setPadding(new Insets(10, 0, 0, 0));
+        VBox v = new VBox(10);
+        v.setAlignment(Pos.TOP_CENTER);
+        v.setPadding(new Insets(10, 0, 0, 0));
 
-    // Album image (top-middle)
-    albumArt = new ImageView(loadOptionalImage("/sprites/album.png"));
-    albumArt.setFitWidth(140);
-    albumArt.setFitHeight(140);
-    albumArt.setPreserveRatio(true);
-    albumArt.setSmooth(false);
+        // Album image (top-middle)
+        albumArt = new ImageView(loadOptionalImage("/sprites/album.png"));
+        albumArt.setFitWidth(140);
+        albumArt.setFitHeight(140);
+        albumArt.setPreserveRatio(true);
+        albumArt.setSmooth(false);
 
-    StackPane artWrap = new StackPane(albumArt);
-    artWrap.setPrefSize(140, 140);
-    artWrap.setMaxSize(140, 140);
-    artWrap.setStyle("""
-        -fx-background-color: rgba(255,255,255,0.08);
-        -fx-background-radius: 12;
-        -fx-border-color: rgba(255,255,255,0.12);
-        -fx-border-radius: 12;
-    """);
+        StackPane artWrap = new StackPane(albumArt);
+        artWrap.setPrefSize(140, 140);
+        artWrap.setMaxSize(140, 140);
+        artWrap.setStyle("""
+                    -fx-background-color: rgba(255,255,255,0.08);
+                    -fx-background-radius: 12;
+                    -fx-border-color: rgba(255,255,255,0.12);
+                    -fx-border-radius: 12;
+                """);
 
-    // Track label (under art)
-    nowTrack.setStyle("-fx-text-fill: white; -fx-font-size: 12;");
-    nowTrack.setMaxWidth(PHONE_W - 28);
-    nowTrack.setAlignment(Pos.CENTER);
+        // Track label (under art)
+        nowTrack.setStyle("-fx-text-fill: white; -fx-font-size: 12;");
+        nowTrack.setMaxWidth(PHONE_W - 28);
+        nowTrack.setAlignment(Pos.CENTER);
 
-    // Status bar (under track)
-    statusBar.setStyle("-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 11;");
+        // Status bar (under track)
+        statusBar.setStyle("-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 11;");
 
-    // Controls row
-    Button prev = new Button("Prev");
-    pauseBtn = new Button("Pause");
-    resumeBtn = new Button("Resume");
-    Button stop = new Button("Stop");
-    Button next = new Button("Next");
+        // Controls row
+        Button prev = new Button("Prev");
+        playPauseBtn = new ToggleButton("Pause");
+        Button stop = new Button("Stop");
+        Button next = new Button("Next");
 
-    prev.setOnAction(e -> {
-        Track t = playlist.prev();
-        if (t != null) {
-            engine.play(t);
-            musicList.getSelectionModel().select(playlist.index());
-            nowTrack.setText(t.displayName());
-            statusBar.setText("Playing");
+        prev.setOnAction(e -> {
+            Track t = playlist.prev();
+            if (t != null) {
+                engine.play(t);
+                musicList.getSelectionModel().select(playlist.index());
+                nowTrack.setText(t.displayName());
+                statusBar.setText("Playing");
+            }
+        });
+
+        next.setOnAction(e -> {
+            Track t = pickNextManual(); // respects Mix
+            if (t != null) {
+                engine.play(t);
+                musicList.getSelectionModel().select(playlist.index());
+                nowTrack.setText(t.displayName());
+                statusBar.setText("Playing");
+            }
+        });
+
+        playPauseBtn.setOnAction(e -> {
+            if (!isPaused) {
+                engine.pause();
+                playPauseBtn.setText("Play");
+                statusBar.setText("Paused");
+                isPaused = true;
+            } else {
+                engine.resume();
+                playPauseBtn.setText("Pause");
+                statusBar.setText("Playing");
+                isPaused = false;
+            }
+        });
+
+        stop.setOnAction(e -> {
+            engine.stop();
+            isPlaying = false;
+            statusBar.setText("Stopped");
+            playPauseBtn.setText("Play");
+            isPaused = true;
+        });
+
+        HBox row1 = new HBox(6, prev, playPauseBtn, stop, next);
+        row1.setAlignment(Pos.CENTER);
+
+        // Loop + Mix row (with Mix highlight)
+        ToggleButton loopBtn = new ToggleButton("Loop");
+        ToggleButton mixBtn = new ToggleButton("Mix");
+
+        playerBtns.clear();
+        playerBtns.addAll(List.of(prev, playPauseBtn, stop, next, loopBtn, mixBtn));
+
+        loopBtn.setOnAction(e -> loop = loopBtn.isSelected());
+
+        mixBtn.setOnAction(e -> {
+            mix = mixBtn.isSelected();
+            if (mix) {
+                mixBtn.setStyle("-fx-background-color: #ff9800; -fx-text-fill: black;");
+            } else {
+                mixBtn.setStyle("");
+            }
+        });
+
+        HBox row2 = new HBox(8, loopBtn, mixBtn);
+        row2.setAlignment(Pos.CENTER);
+
+        v.getChildren().addAll(artWrap, nowTrack, statusBar, row1, row2);
+        return v;
+    }
+
+    private javafx.scene.image.Image loadOptionalImage(String resourcePath) {
+        try (var in = getClass().getResourceAsStream(resourcePath)) {
+            if (in == null)
+                return null;
+            return new javafx.scene.image.Image(in);
+        } catch (Exception ignored) {
+            return null;
         }
-    });
+    }
 
-    next.setOnAction(e -> {
-        Track t = pickNextManual(); // respects Mix
-        if (t != null) {
-            engine.play(t);
-            musicList.getSelectionModel().select(playlist.index());
-            nowTrack.setText(t.displayName());
-            statusBar.setText("Playing");
-        }
-    });
+    private Track pickNextManual() {
+        if (playlist.isEmpty())
+            return null;
 
-    pauseBtn.setOnAction(e -> {
-        engine.pause();
-        statusBar.setText("Paused");
-    });
-
-    resumeBtn.setOnAction(e -> {
-        engine.resume();
-        statusBar.setText("Playing");
-    });
-
-    stop.setOnAction(e -> {
-        engine.stop();
-        statusBar.setText("Stopped");
-    });
-
-    HBox row1 = new HBox(6, prev, pauseBtn, resumeBtn, stop, next);
-    row1.setAlignment(Pos.CENTER);
-
-    // Loop + Mix row (with Mix highlight)
-    ToggleButton loopBtn = new ToggleButton("Loop");
-    ToggleButton mixBtn = new ToggleButton("Mix");
-
-    loopBtn.setOnAction(e -> loop = loopBtn.isSelected());
-
-    mixBtn.setOnAction(e -> {
-        mix = mixBtn.isSelected();
         if (mix) {
-            mixBtn.setStyle("-fx-background-color: #ff9800; -fx-text-fill: black;");
-        } else {
-            mixBtn.setStyle("");
+            int n = playlist.size();
+            if (n <= 1)
+                return playlist.current();
+            int cur = playlist.index();
+            int r;
+            do {
+                r = rng.nextInt(n);
+            } while (r == cur);
+            return playlist.setIndex(r);
         }
-    });
 
-    HBox row2 = new HBox(8, loopBtn, mixBtn);
-    row2.setAlignment(Pos.CENTER);
-
-    v.getChildren().addAll(artWrap, nowTrack, statusBar, row1, row2);
-    return v;
-}
-
-
-private javafx.scene.image.Image loadOptionalImage(String resourcePath) {
-    try (var in = getClass().getResourceAsStream(resourcePath)) {
-        if (in == null) return null;
-        return new javafx.scene.image.Image(in);
-    } catch (Exception ignored) {
-        return null;
+        return playlist.next();
     }
-}
-
-private Track pickNextManual() {
-    if (playlist.isEmpty()) return null;
-
-    if (mix) {
-        int n = playlist.size();
-        if (n <= 1) return playlist.current();
-        int cur = playlist.index();
-        int r;
-        do { r = rng.nextInt(n); } while (r == cur);
-        return playlist.setIndex(r);
-    }
-
-    return playlist.next();
-}
-
-
 
     // ---------------- Keyboard control logic ----------------
 
@@ -338,7 +364,8 @@ private Track pickNextManual() {
             }
 
             // If phone not open, ignore everything else
-            if (!phoneVisible) return;
+            if (!phoneVisible)
+                return;
 
             // ESC behavior: go back one level; if already launcher -> hide phone
             if (e.getCode() == KeyCode.ESCAPE) {
@@ -355,6 +382,27 @@ private Track pickNextManual() {
                 return;
             }
 
+            // -------- MUSIC PLAYER: keyboard controls for buttons --------
+            if (screen == Screen.MUSIC_PLAYER) {
+                if (e.getCode() == KeyCode.LEFT || e.getCode() == KeyCode.RIGHT
+                        || e.getCode() == KeyCode.UP || e.getCode() == KeyCode.DOWN) {
+                    movePlayerFocus(e.getCode());
+                    e.consume();
+                    return;
+                }
+
+                if (e.getCode() == KeyCode.ENTER || e.getCode() == KeyCode.SPACE) {
+                    fireFocusedPlayerBtn();
+                    e.consume();
+                    return;
+                }
+
+                // block everything else while player is open
+                e.consume();
+                return;
+            }
+            // ------------------------------------------------------------
+
             // Arrow keys should navigate whichever list is active
             if (e.getCode() == KeyCode.UP || e.getCode() == KeyCode.DOWN) {
                 if (screen == Screen.LAUNCHER) {
@@ -365,9 +413,6 @@ private Track pickNextManual() {
                     Platform.runLater(musicList::requestFocus);
                     return;
                 }
-                // player screen: block arrow keys (for now)
-                e.consume();
-                return;
             }
 
             // ENTER behavior depends on screen
@@ -378,24 +423,21 @@ private Track pickNextManual() {
                     return;
                 }
                 if (screen == Screen.MUSIC_LIST) {
-                    playSelectedTrack();
-                    showScreen(Screen.MUSIC_PLAYER);
+                    playSelectedTrack(); // this already switches to MUSIC_PLAYER
                     e.consume();
                     return;
                 }
-                // player screen: ignore ENTER for now
-                e.consume();
-                return;
             }
 
-            // Phone open: block everything else for now (tight control)
+            // Phone open: block everything else
             e.consume();
         });
     }
 
     private void openSelectedApp() {
         int sel = appList.getSelectionModel().getSelectedIndex();
-        if (sel < 0) sel = 0;
+        if (sel < 0)
+            sel = 0;
 
         String app = appList.getItems().get(sel);
         if ("Music".equals(app)) {
@@ -408,24 +450,71 @@ private Track pickNextManual() {
     }
 
     private void playSelectedTrack() {
-    if (playlist.isEmpty()) return;
+        if (playlist.isEmpty())
+            return;
 
-    int sel = musicList.getSelectionModel().getSelectedIndex();
-    if (sel < 0) sel = 0;
+        int sel = musicList.getSelectionModel().getSelectedIndex();
+        if (sel < 0)
+            sel = 0;
 
-    Track t = playlist.setIndex(sel);
-    if (t == null) return;
+        Track t = playlist.setIndex(sel);
+        if (t == null)
+            return;
 
-    engine.play(t);
+        engine.play(t);
+        isPlaying = true;
 
-    // update player screen UI
-    nowTrack.setText(t.displayName());
-    statusBar.setText("Playing");
+        // update player state/UI
+        isPaused = false;
+        playPauseBtn.setText("Pause");
+        nowTrack.setText(t.displayName());
+        statusBar.setText("Playing");
 
-    // go to player screen
-    showScreen(Screen.MUSIC_PLAYER);
-}
+        // go to player screen, then focus the play/pause button
+        showScreen(Screen.MUSIC_PLAYER);
+        Platform.runLater(() -> focusPlayerBtn(1));
+    }
 
+    private void focusPlayerBtn(int idx) {
+        if (playerBtns.isEmpty())
+            return;
+        playerFocus = Math.max(0, Math.min(playerBtns.size() - 1, idx));
+        ButtonBase b = playerBtns.get(playerFocus);
+        Platform.runLater(b::requestFocus);
+    }
+
+    private void movePlayerFocus(KeyCode code) {
+        // layout: [0 prev, 1 pause, 2 resume, 3 stop, 4 next] on top row
+        // [5 loop, 6 mix] on bottom row
+        int i = playerFocus;
+
+        if (i <= 4) { // top row
+            if (code == KeyCode.LEFT)
+                focusPlayerBtn(Math.max(0, i - 1));
+            if (code == KeyCode.RIGHT)
+                focusPlayerBtn(Math.min(4, i + 1));
+            if (code == KeyCode.DOWN)
+                focusPlayerBtn(i <= 2 ? 5 : 6); // down to loop/mix
+            if (code == KeyCode.UP)
+                focusPlayerBtn(i); // stay
+        } else { // bottom row
+            if (code == KeyCode.LEFT || code == KeyCode.RIGHT) {
+                focusPlayerBtn(i == 5 ? 6 : 5); // toggle between loop/mix
+            }
+            if (code == KeyCode.UP) {
+                focusPlayerBtn(i == 5 ? 2 : 3); // up to resume/stop
+            }
+            if (code == KeyCode.DOWN) {
+                focusPlayerBtn(i); // stay
+            }
+        }
+    }
+
+    private void fireFocusedPlayerBtn() {
+        if (playerBtns.isEmpty())
+            return;
+        playerBtns.get(playerFocus).fire(); // works for Button + ToggleButton
+    }
 
     // ---------------- Screen switching ----------------
 
@@ -445,13 +534,20 @@ private Track pickNextManual() {
     // ---------------- Phone open/close + click blocking ----------------
 
     private void showPhone() {
-        if (phoneVisible) return;
+        if (phoneVisible)
+            return;
         phoneVisible = true;
 
         clickBlocker.setMouseTransparent(false); // block clicks outside phone
 
         // Always open to launcher
-        showScreen(Screen.LAUNCHER);
+        if (isPlaying) {
+            showScreen(Screen.MUSIC_PLAYER);
+            Platform.runLater(() -> focusPlayerBtn(1)); // play/pause
+        } else {
+            showScreen(Screen.LAUNCHER);
+            Platform.runLater(appList::requestFocus);
+        }
 
         TranslateTransition t = new TranslateTransition(Duration.millis(180), phone);
         t.setToY(0);
@@ -464,7 +560,8 @@ private Track pickNextManual() {
     }
 
     private void hidePhone() {
-        if (!phoneVisible) return;
+        if (!phoneVisible)
+            return;
         phoneVisible = false;
 
         clickBlocker.setMouseTransparent(true);
@@ -479,16 +576,21 @@ private Track pickNextManual() {
     // ---------------- Playback logic ----------------
 
     private Track pickNextTrackOnEnd() {
-        if (playlist.isEmpty()) return null;
+        if (playlist.isEmpty())
+            return null;
 
-        if (loop) return playlist.current();
+        if (loop)
+            return playlist.current();
 
         if (mix) {
             int n = playlist.size();
-            if (n <= 1) return playlist.current();
+            if (n <= 1)
+                return playlist.current();
             int cur = playlist.index();
             int r;
-            do { r = rng.nextInt(n); } while (r == cur);
+            do {
+                r = rng.nextInt(n);
+            } while (r == cur);
             return playlist.setIndex(r);
         }
 
@@ -499,7 +601,8 @@ private Track pickNextManual() {
 
     private Path getFolderFromArgsOrPrompt(Stage stage) {
         var args = getParameters().getRaw();
-        if (!args.isEmpty()) return Paths.get(args.get(0));
+        if (!args.isEmpty())
+            return Paths.get(args.get(0));
 
         DirectoryChooser dc = new DirectoryChooser();
         dc.setTitle("Choose Music Folder");
