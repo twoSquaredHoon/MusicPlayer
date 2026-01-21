@@ -89,6 +89,7 @@ public class MainApp extends Application {
     private Button loopBtn; // field
 
     private LoopMode loopMode = LoopMode.OFF;
+    private boolean loopOnceArmed = false;
 
     @Override
     public void start(Stage stage) throws Exception {
@@ -124,97 +125,109 @@ public class MainApp extends Application {
 
     // ---------------- Phone construction ----------------
 
-    private VBox createPhone(Stage stage) throws Exception {
-        VBox box = new VBox(10);
-        box.setPrefSize(PHONE_W, PHONE_H);
-        box.setMinSize(PHONE_W, PHONE_H);
-        box.setMaxSize(PHONE_W, PHONE_H);
+ private VBox createPhone(Stage stage) throws Exception {
+    VBox box = new VBox(10);
+    box.setPrefSize(PHONE_W, PHONE_H);
+    box.setMinSize(PHONE_W, PHONE_H);
+    box.setMaxSize(PHONE_W, PHONE_H);
 
-        box.setPadding(new Insets(14));
-        box.setAlignment(Pos.TOP_CENTER);
-        box.setStyle("""
-                    -fx-background-color: rgba(18,18,18,0.97);
-                    -fx-background-radius: 28;
-                    -fx-border-radius: 28;
-                    -fx-border-color: rgba(255,255,255,0.18);
-                """);
+    box.setPadding(new Insets(14));
+    box.setAlignment(Pos.TOP_CENTER);
+    box.setStyle("""
+            -fx-background-color: rgba(18,18,18,0.97);
+            -fx-background-radius: 28;
+            -fx-border-radius: 28;
+            -fx-border-color: rgba(255,255,255,0.18);
+        """);
 
-        Label title = new Label("999K");
-        title.setStyle("""
-                    -fx-text-fill: white;
-                    -fx-font-size: 14;
-                    -fx-font-weight: bold;
-                """);
+    Label title = new Label("999K");
+    title.setStyle("""
+            -fx-text-fill: white;
+            -fx-font-size: 14;
+            -fx-font-weight: bold;
+        """);
 
-        // Build screens
-        launcherScreen = buildLauncherScreen();
-        musicListScreen = buildMusicListScreen();
-        musicPlayerScreen = buildMusicPlayerScreen();
+    // Build screens
+    launcherScreen = buildLauncherScreen();
+    musicListScreen = buildMusicListScreen();
+    musicPlayerScreen = buildMusicPlayerScreen();
 
-        // default screen
-        showScreen(Screen.LAUNCHER);
+    // default screen
+    showScreen(Screen.LAUNCHER);
 
-        box.getChildren().addAll(title, launcherScreen, musicListScreen, musicPlayerScreen);
+    box.getChildren().addAll(title, launcherScreen, musicListScreen, musicPlayerScreen);
 
-        // anchor phone bottom-left
-        StackPane.setAlignment(box, Pos.BOTTOM_LEFT);
-        StackPane.setMargin(box, new Insets(16));
+    // anchor phone bottom-left
+    StackPane.setAlignment(box, Pos.BOTTOM_LEFT);
+    StackPane.setMargin(box, new Insets(16));
 
-        // allow clicks inside phone (and prevent passing through)
-        box.setOnMousePressed(e -> e.consume());
+    // allow clicks inside phone (and prevent passing through)
+    box.setOnMousePressed(e -> e.consume());
 
-        // Load music folder once (for now)
-        Path folder = getFolderFromArgsOrPrompt(stage);
-        if (folder != null && Files.isDirectory(folder)) {
-            playlist.loadFromFolder(folder);
-            musicList.getItems().setAll(playlist.all());
+    // Load music folder once (for now)
+    Path folder = getFolderFromArgsOrPrompt(stage);
+    if (folder != null && Files.isDirectory(folder)) {
+        playlist.loadFromFolder(folder);
+        musicList.getItems().setAll(playlist.all());
+    }
+
+    // Auto-advance (3-stage loop + mix + normal next) - MUST update UI on FX thread
+    engine.setOnEnd(() -> Platform.runLater(() -> {
+    if (playlist.isEmpty()) {
+        engine.stop();
+        isPlaying = false;
+        isPaused = false;
+        if (playPauseBtn != null) playPauseBtn.setText("Play");
+        statusBar.setText("Stopped");
+        return;
+    }
+
+    Track next;
+
+    if (loopMode == LoopMode.REPEAT) {
+        // repeat forever (button stays On)
+        next = playlist.current();
+
+    } else if (loopMode == LoopMode.ONCE) {
+        if (loopOnceArmed) {
+            // ✅ FIRST end: do the one extra repeat,
+            // but immediately reset UI/state to OFF like you want.
+            loopOnceArmed = false;
+            loopMode = LoopMode.OFF;
+            if (loopBtn != null) updateLoopButton(loopBtn);  // Loop button flips to Off NOW
+
+            next = playlist.current(); // replay one time
+        } else {
+            // SECOND end: now it advances normally (since loopMode is already OFF)
+            next = pickNextTrackOnEnd();
         }
 
-        // Auto-advance (3-stage loop + mix + normal next) - MUST update UI on FX thread
-        engine.setOnEnd(() -> Platform.runLater(() -> {
-            Track next;
-
-            // 3-stage loop:
-            // ONCE -> replay current once, then turn OFF
-            // REPEAT-> replay forever
-            // OFF -> go to next (respecting Mix)
-            if (loopMode == LoopMode.ONCE || loopMode == LoopMode.REPEAT) {
-                next = playlist.current(); // replay same track
-
-                if (loopMode == LoopMode.ONCE) {
-                    loopMode = LoopMode.OFF;
-                    if (loopBtn != null)
-                        updateLoopButton(loopBtn); // loopBtn should be a field
-                }
-            } else {
-                next = pickNextTrackOnEnd(); // should respect Mix if you want
-            }
-
-            if (next != null) {
-                engine.play(next);
-                isPlaying = true;
-                isPaused = false;
-                if (playPauseBtn != null)
-                    playPauseBtn.setText("Pause");
-                if (statusBar != null)
-                    statusBar.setText("Playing");
-                if (nowTrack != null)
-                    nowTrack.setText(next.displayName());
-                if (musicList != null)
-                    musicList.getSelectionModel().select(playlist.index());
-            } else {
-                engine.stop();
-                isPlaying = false;
-                isPaused = false;
-                if (playPauseBtn != null)
-                    playPauseBtn.setText("Play");
-                if (statusBar != null)
-                    statusBar.setText("Stopped");
-            }
-        }));
-
-        return box;
+    } else {
+        // OFF: normal advance
+        next = pickNextTrackOnEnd();
     }
+
+    if (next != null) {
+        engine.play(next);
+        isPlaying = true;
+        isPaused = false;
+        if (playPauseBtn != null) playPauseBtn.setText("Pause");
+        statusBar.setText("Playing");
+        nowTrack.setText(next.displayName());
+        musicList.getSelectionModel().select(playlist.index());
+    } else {
+        engine.stop();
+        isPlaying = false;
+        isPaused = false;
+        if (playPauseBtn != null) playPauseBtn.setText("Play");
+        statusBar.setText("Stopped");
+    }
+}));
+
+
+    return box;
+}
+
 
     private VBox buildLauncherScreen() {
         VBox v = new VBox(10);
@@ -423,30 +436,35 @@ public class MainApp extends Application {
         row1.setAlignment(Pos.CENTER);
 
         // Loop + Mix row
-        Button loopBtn = new Button(); // <- 3-state loop button
-        updateLoopButton(loopBtn);
 
-        ToggleButton mixBtn = new ToggleButton("Mix");
 
-        loopBtn.setOnAction(e -> {
-            loopMode = switch (loopMode) {
-                case OFF -> LoopMode.ONCE;
-                case ONCE -> LoopMode.REPEAT;
-                case REPEAT -> LoopMode.OFF;
-            };
-            updateLoopButton(loopBtn);
-        });
 
-        mixBtn.setOnAction(e -> {
-            mix = mixBtn.isSelected();
-            mixBtn.setStyle(mix ? "-fx-background-color: #ff9800; -fx-text-fill: black;" : "");
-        });
+        // Loop + Mix row
+loopBtn = new Button();                // ✅ assign the FIELD, not a local var
+updateLoopButton(loopBtn);
 
-        playerBtns.clear();
-        playerBtns.addAll(List.of(prev, playPauseBtn, stop, next, loopBtn, mixBtn));
+ToggleButton mixBtn = new ToggleButton("Mix");
 
-        HBox row2 = new HBox(8, loopBtn, mixBtn);
-        row2.setAlignment(Pos.CENTER);
+loopBtn.setOnAction(e -> {
+    loopMode = switch (loopMode) {
+        case OFF -> { loopOnceArmed = true;  yield LoopMode.ONCE; }
+        case ONCE -> { loopOnceArmed = false; yield LoopMode.REPEAT; }
+        case REPEAT -> { loopOnceArmed = false; yield LoopMode.OFF; }
+    };
+    updateLoopButton(loopBtn);
+});
+
+mixBtn.setOnAction(e -> {
+    mix = mixBtn.isSelected();
+    mixBtn.setStyle(mix ? "-fx-background-color: #ff9800; -fx-text-fill: black;" : "");
+});
+
+playerBtns.clear();
+playerBtns.addAll(List.of(prev, playPauseBtn, stop, next, loopBtn, mixBtn));
+
+HBox row2 = new HBox(8, loopBtn, mixBtn);
+row2.setAlignment(Pos.CENTER);
+
 
         v.getChildren().addAll(artWrap, nowTrack, statusBar, row1, row2);
         return v;
@@ -718,32 +736,30 @@ public class MainApp extends Application {
 
     // ---------------- Playback logic ----------------
 
-private Track pickNextTrackOnEnd() {
-    if (playlist.isEmpty())
-        return null;
+    private Track pickNextTrackOnEnd() {
+        if (playlist.isEmpty())
+            return null;
 
-    // Loop logic is now handled by loopMode
-    if (loopMode == LoopMode.ONCE || loopMode == LoopMode.REPEAT) {
-        return playlist.current();
-    }
-
-    if (mix) {
-        int n = playlist.size();
-        if (n <= 1)
+        // If looping (once or repeat), replay current track
+        if (loopMode == LoopMode.ONCE || loopMode == LoopMode.REPEAT) {
             return playlist.current();
+        }
 
-        int cur = playlist.index();
-        int r;
-        do {
-            r = rng.nextInt(n);
-        } while (r == cur);
+        // Otherwise advance (respect Mix)
+        if (mix) {
+            int n = playlist.size();
+            if (n <= 1)
+                return playlist.current();
+            int cur = playlist.index();
+            int r;
+            do {
+                r = rng.nextInt(n);
+            } while (r == cur);
+            return playlist.setIndex(r);
+        }
 
-        return playlist.setIndex(r);
+        return playlist.next();
     }
-
-    return playlist.next();
-}
-
 
     // ---------------- Folder selection ----------------
 
