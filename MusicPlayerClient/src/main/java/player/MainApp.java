@@ -100,6 +100,13 @@ public class MainApp extends Application {
     private Timeline progressTimer;
     private boolean userScrubbing = false;
 
+    // dancing sprite
+private ImageView dancer;
+private java.util.List<Image> danceFrames;
+private Timeline danceTimeline;
+private int danceIdx = 0;
+
+
     private static final String APP_STYLE_NORMAL = """
                 -fx-background-color: rgba(255,255,255,0.10);
                 -fx-text-fill: white;
@@ -114,37 +121,59 @@ public class MainApp extends Application {
                 -fx-background-radius: 12;
             """;
 
-    @Override
-    public void start(Stage stage) throws Exception {
-        stage.setTitle("MusicPlayer");
+@Override
+public void start(Stage stage) throws Exception {
+    stage.setTitle("MusicPlayer");
 
-        root = new StackPane();
-        root.setStyle("-fx-background-color: black;");
+    root = new StackPane();
 
-        // Create phone (loads music folder once for now)
-        phone = createPhone(stage);
-        phone.setTranslateY(PHONE_H + 40); // start hidden
+    // background image
+    Image bg = new Image(
+            getClass().getResource("/background/mkqeq4erhho5du.jpeg").toExternalForm()
+    );
 
-        // Click blocker (blocks clicks outside phone when phone is open)
-        clickBlocker = new Pane();
-        clickBlocker.setPickOnBounds(true);
-        clickBlocker.setMouseTransparent(true); // off by default
-        clickBlocker.prefWidthProperty().bind(root.widthProperty());
-        clickBlocker.prefHeightProperty().bind(root.heightProperty());
-        clickBlocker.setOnMousePressed(e -> e.consume());
-        clickBlocker.setOnMouseClicked(e -> e.consume());
+    BackgroundImage bgImg = new BackgroundImage(
+            bg,
+            BackgroundRepeat.NO_REPEAT,
+            BackgroundRepeat.NO_REPEAT,
+            BackgroundPosition.CENTER,
+            new BackgroundSize(
+                    BackgroundSize.AUTO, BackgroundSize.AUTO,
+                    false, false, false, true
+            )
+    );
 
-        root.getChildren().addAll(clickBlocker, phone);
+    root.setBackground(new Background(bgImg));
 
-        Scene scene = new Scene(root, 900, 600);
-        scene.setCursor(Cursor.DEFAULT);
-        attachKeyControls(scene);
+    // Create phone (loads music folder once for now)
+    phone = createPhone(stage);
+    phone.setTranslateY(PHONE_H + 40); // start hidden
 
-        stage.setScene(scene);
-        stage.show();
+    // Click blocker (blocks clicks outside phone when phone is open)
+    clickBlocker = new Pane();
+    clickBlocker.setPickOnBounds(true);
+    clickBlocker.setMouseTransparent(true); // off by default
+    clickBlocker.prefWidthProperty().bind(root.widthProperty());
+    clickBlocker.prefHeightProperty().bind(root.heightProperty());
+    clickBlocker.setOnMousePressed(e -> e.consume());
+    clickBlocker.setOnMouseClicked(e -> e.consume());
 
-        Platform.runLater(root::requestFocus);
-    }
+    // Dancing sprite (behind phone)
+    initDancer();
+
+    // Layer order matters: dancer → clickBlocker → phone
+    root.getChildren().addAll(dancer, clickBlocker, phone);
+
+    Scene scene = new Scene(root, 900, 600);
+    scene.setCursor(Cursor.DEFAULT);
+    attachKeyControls(scene);
+
+    stage.setScene(scene);
+    stage.show();
+
+    Platform.runLater(root::requestFocus);
+}
+
 
     // ---------------- Phone construction ----------------
 
@@ -698,6 +727,8 @@ public class MainApp extends Application {
         // go to player screen, then focus the play/pause button
         showScreen(Screen.MUSIC_PLAYER);
         Platform.runLater(() -> focusPlayerBtn(1));
+
+        updateDanceState();
     }
 
     private void focusPlayerBtn(int idx) {
@@ -878,6 +909,52 @@ public class MainApp extends Application {
         if (progressTimer != null)
             progressTimer.stop();
     }
+
+private void initDancer() {
+    Image sheet = new Image(
+            getClass().getResource("/sprites/zero.png").toExternalForm()
+    );
+
+    int cols = 8;
+    int rows = 3;
+    int frameW = (int) sheet.getWidth() / cols;
+    int frameH = (int) sheet.getHeight() / rows;
+
+    dancer = new ImageView(sheet);
+    dancer.setViewport(new javafx.geometry.Rectangle2D(0, 0, frameW, frameH));
+    dancer.setSmooth(false);
+
+    StackPane.setAlignment(dancer, Pos.BOTTOM_RIGHT);
+    StackPane.setMargin(dancer, new Insets(0, 30, 30, 0));
+
+    danceTimeline = new Timeline(new KeyFrame(Duration.millis(90), e -> {
+        danceIdx = (danceIdx + 1) % (cols * rows);
+        int x = (danceIdx % cols) * frameW;
+        int y = (danceIdx / cols) * frameH;
+        dancer.setViewport(new javafx.geometry.Rectangle2D(x, y, frameW, frameH));
+    }));
+    danceTimeline.setCycleCount(Timeline.INDEFINITE);
+}
+
+
+
+private void updateDanceState() {
+    boolean shouldDance = isPlaying && !isPaused;
+    if (danceTimeline == null) return;
+
+    if (shouldDance) {
+        if (danceTimeline.getStatus() != javafx.animation.Animation.Status.RUNNING) {
+            danceTimeline.play();
+        }
+    } else {
+        danceTimeline.stop();
+        danceIdx = 0;
+        if (danceFrames != null && !danceFrames.isEmpty() && dancer != null) {
+            dancer.setImage(danceFrames.get(0)); // reset pose
+        }
+    }
+}
+
 
     @Override
     public void stop() {
