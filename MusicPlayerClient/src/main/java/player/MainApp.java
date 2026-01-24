@@ -232,6 +232,7 @@ public void start(Stage stage) throws Exception {
                 if (playPauseBtn != null)
                     playPauseBtn.setText("Play");
                 statusBar.setText("Stopped");
+                        updateDanceState();   
                 return;
             }
 
@@ -272,6 +273,7 @@ public void start(Stage stage) throws Exception {
                 statusBar.setText("Playing");
                 nowTrack.setText(next.displayName());
                 musicList.getSelectionModel().select(playlist.index());
+                        updateDanceState();   
             } else {
                 engine.stop();
                 isPlaying = false;
@@ -279,6 +281,7 @@ public void start(Stage stage) throws Exception {
                 if (playPauseBtn != null)
                     playPauseBtn.setText("Play");
                 statusBar.setText("Stopped");
+                        updateDanceState();   
             }
         }));
 
@@ -461,6 +464,7 @@ public void start(Stage stage) throws Exception {
                 musicList.getSelectionModel().select(playlist.index());
                 nowTrack.setText(t.displayName());
                 statusBar.setText("Playing");
+                updateDanceState();
             }
         });
 
@@ -477,6 +481,7 @@ public void start(Stage stage) throws Exception {
                 musicList.getSelectionModel().select(playlist.index());
                 nowTrack.setText(t.displayName());
                 statusBar.setText("Playing");
+                updateDanceState();
             }
         });
 
@@ -495,11 +500,13 @@ public void start(Stage stage) throws Exception {
                 isPaused = true;
                 playPauseBtn.setText("Play");
                 statusBar.setText("Paused");
+                updateDanceState();
             } else {
                 engine.resume();
                 isPaused = false;
                 playPauseBtn.setText("Pause");
                 statusBar.setText("Playing");
+                updateDanceState();
             }
         });
 
@@ -512,6 +519,8 @@ public void start(Stage stage) throws Exception {
             stopProgressTimer();
             progress.setValue(0);
             timeLabel.setText("0:00 / 0:00");
+            updateDanceState();
+
         });
 
         HBox row1 = new HBox(6, prev, playPauseBtn, stop, next);
@@ -934,13 +943,23 @@ private void initDancer() {
         dancer.setViewport(new javafx.geometry.Rectangle2D(x, y, frameW, frameH));
     }));
     danceTimeline.setCycleCount(Timeline.INDEFINITE);
+
+    danceFrameW = (int) sheet.getWidth() / cols;
+danceFrameH = (int) sheet.getHeight() / rows;
+
+dancer.setViewport(new javafx.geometry.Rectangle2D(0, 0, danceFrameW, danceFrameH));
+
 }
 
 
 
+// add these fields near dancer fields
+private int danceFrameW;
+private int danceFrameH;
+
 private void updateDanceState() {
     boolean shouldDance = isPlaying && !isPaused;
-    if (danceTimeline == null) return;
+    if (danceTimeline == null || dancer == null) return;
 
     if (shouldDance) {
         if (danceTimeline.getStatus() != javafx.animation.Animation.Status.RUNNING) {
@@ -949,11 +968,10 @@ private void updateDanceState() {
     } else {
         danceTimeline.stop();
         danceIdx = 0;
-        if (danceFrames != null && !danceFrames.isEmpty() && dancer != null) {
-            dancer.setImage(danceFrames.get(0)); // reset pose
-        }
+        dancer.setViewport(new javafx.geometry.Rectangle2D(0, 0, danceFrameW, danceFrameH));
     }
 }
+
 
 
     @Override
@@ -965,5 +983,3 @@ private void updateDanceState() {
         launch(args);
     }
 }
-
-// 잔디를 깔아야해
