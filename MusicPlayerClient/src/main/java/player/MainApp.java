@@ -8,7 +8,6 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Cursor;
 import javafx.scene.Scene;
-// add to imports
 import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
@@ -16,10 +15,8 @@ import javafx.scene.layout.*;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 import javafx.util.Duration;
-
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,86 +24,87 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
-
-import javafx.animation.Timeline;
 import javafx.animation.KeyFrame;
 
 public class MainApp extends Application {
-
+    // Accepted data types
     private static final Set<String> EXT = Set.of("mp3", "m4a", "aac", "wav");
 
-    // fixed phone size (fullscreen-safe)
-    private static final int PHONE_W = 240;
-    private static final int PHONE_H = 480;
-
+    // Top level container for entire app, Everything (background, dancer, phone UI)
+    // is stacked on top of each other here.
+    // Might fix this in the future
     private StackPane root;
     private Pane clickBlocker;
 
+    // Phone realted
     private VBox phone;
+    private static final int PHONE_W = 240;
+    private static final int PHONE_H = 480;
     private boolean phoneVisible = false;
 
-    // "Apps"
+    // Which screen is currently active on phone
     private enum Screen {
         LAUNCHER, MUSIC_LIST, MUSIC_PLAYER
     }
 
+    // Phone starts on LAUNCHER
     private Screen screen = Screen.LAUNCHER;
-
-    // data + playback
-    private final Playlist playlist = new Playlist(EXT);
-    private final PlayerEngine engine = new PlayerEngine();
-
-    private enum LoopMode {
-        OFF, ONCE, REPEAT
-    }
-
-    private boolean mix = false;
-    private final Random rng = new Random();
 
     // UI elements inside phone
     private final ListView<String> appList = new ListView<>();
     private final ListView<Track> musicList = new ListView<>();
 
+    // Launcher Aoo grid
+    private final String[] apps = { "Music", "Messages", "Settings", "Notes", "Map", "Camera", "Clock" };
+    private final java.util.List<Button> appTiles = new java.util.ArrayList<>();
+    private int appFocus = 0;
+    private static final int APP_COLS = 3;
+
+    // Playback (data/engine)
+    // data selection
+    private final Playlist playlist = new Playlist(EXT);
+
+    // playback and audio
+    private final PlayerEngine engine = new PlayerEngine();
+
+    // Phone screens
     private VBox launcherScreen;
     private VBox musicListScreen;
     private VBox musicPlayerScreen;
 
+    // Loop, Mix, Random
+    private enum LoopMode {
+        OFF, ONCE, REPEAT
+    }
+
+    private LoopMode loopMode = LoopMode.OFF;
+    // Asked for loop once but hasn't happened yet
+    private boolean loopOnceArmed = false;
+    private boolean mix = false;
+    private final Random rng = new Random();
+
+    // Music Playing Screen
     private ImageView albumArt;
     private final Label nowTrack = new Label("");
     private final Label statusBar = new Label("Stopped");
-
     private ToggleButton playPauseBtn;
     private boolean isPaused = false;
-
     private final java.util.List<ButtonBase> playerBtns = new java.util.ArrayList<>();
     private int playerFocus = 0;
-
     private boolean isPlaying = false;
-
-    // launcher grid
-    private final String[] apps = { "Music", "Messages", "Settings", "Notes", "Map", "Camera", "Clock" };
-    private final java.util.List<Button> appTiles = new java.util.ArrayList<>();
-    private int appFocus = 0;
-
-    private static final int APP_COLS = 3; // 3 columns grid
-
     private Button loopBtn; // field
-
-    private LoopMode loopMode = LoopMode.OFF;
-    private boolean loopOnceArmed = false;
-
     private Slider progress;
     private final Label timeLabel = new Label("0:00 / 0:00");
     private Timeline progressTimer;
     private boolean userScrubbing = false;
 
     // dancing sprite
-private ImageView dancer;
-private java.util.List<Image> danceFrames;
-private Timeline danceTimeline;
-private int danceIdx = 0;
+    private ImageView dancer;
+    private java.util.List<Image> danceFrames;
+    private Timeline danceTimeline;
+    private int danceIdx = 0;
 
-
+    // Design that is most likely to be fixed later anyway
     private static final String APP_STYLE_NORMAL = """
                 -fx-background-color: rgba(255,255,255,0.10);
                 -fx-text-fill: white;
@@ -121,59 +119,93 @@ private int danceIdx = 0;
                 -fx-background-radius: 12;
             """;
 
-@Override
-public void start(Stage stage) throws Exception {
-    stage.setTitle("MusicPlayer");
+    // ---------------- Bot Sequence ----------------
+    @Override
+    public void start(Stage stage) throws Exception {
+        stage.setTitle("MusicPlayer");
 
-    root = new StackPane();
+        // Root container
+        root = new StackPane();
 
-    // background image
-    Image bg = new Image(
-            getClass().getResource("/background/mkqeq4erhho5du.jpeg").toExternalForm()
-    );
+        // Background image
+        Image bg = new Image(
+                getClass().getResource("/background/mkqeq4erhho5du.jpeg").toExternalForm());
 
-    BackgroundImage bgImg = new BackgroundImage(
-            bg,
-            BackgroundRepeat.NO_REPEAT,
-            BackgroundRepeat.NO_REPEAT,
-            BackgroundPosition.CENTER,
-            new BackgroundSize(
-                    BackgroundSize.AUTO, BackgroundSize.AUTO,
-                    false, false, false, true
-            )
-    );
+        BackgroundImage bgImg = new BackgroundImage(
+                bg,
+                BackgroundRepeat.NO_REPEAT,
+                BackgroundRepeat.NO_REPEAT,
+                BackgroundPosition.CENTER,
+                new BackgroundSize(
+                        BackgroundSize.AUTO, BackgroundSize.AUTO,
+                        false, false, false, true));
 
-    root.setBackground(new Background(bgImg));
+        root.setBackground(new Background(bgImg));
 
-    // Create phone (loads music folder once for now)
-    phone = createPhone(stage);
-    phone.setTranslateY(PHONE_H + 40); // start hidden
+        // Create phone (hidden off-screen initially)
+        phone = createPhone(stage);
+        phone.setTranslateY(PHONE_H + 40);
 
-    // Click blocker (blocks clicks outside phone when phone is open)
-    clickBlocker = new Pane();
-    clickBlocker.setPickOnBounds(true);
-    clickBlocker.setMouseTransparent(true); // off by default
-    clickBlocker.prefWidthProperty().bind(root.widthProperty());
-    clickBlocker.prefHeightProperty().bind(root.heightProperty());
-    clickBlocker.setOnMousePressed(e -> e.consume());
-    clickBlocker.setOnMouseClicked(e -> e.consume());
+        // Dancing sprite (behind phone)
+        initDancer();
 
-    // Dancing sprite (behind phone)
-    initDancer();
+        // Layer order: background → dancer → phone
+        root.getChildren().addAll(dancer, phone);
 
-    // Layer order matters: dancer → clickBlocker → phone
-    root.getChildren().addAll(dancer, clickBlocker, phone);
+        // Scene
+        Scene scene = new Scene(root, 900, 600);
+        scene.setCursor(Cursor.DEFAULT);
+        attachKeyControls(scene);
 
-    Scene scene = new Scene(root, 900, 600);
-    scene.setCursor(Cursor.DEFAULT);
-    attachKeyControls(scene);
+        // IMPORTANT: keyboard focus
+        root.setFocusTraversable(true);
+        root.setOnMouseClicked(e -> root.requestFocus());
+        Platform.runLater(root::requestFocus);
 
-    stage.setScene(scene);
-    stage.show();
+        stage.setScene(scene);
+        stage.show();
+    }
 
-    Platform.runLater(root::requestFocus);
-}
+    // ---------------- Phone open/close + click blocking (disabled) ----------------
+    private void showPhone() {
+        if (phoneVisible)
+            return;
+        phoneVisible = true;
 
+        // clickBlocker.setMouseTransparent(false); // block clicks outside phone
+
+        // Always open to launcher
+        if (isPlaying) {
+            showScreen(Screen.MUSIC_PLAYER);
+            Platform.runLater(() -> focusPlayerBtn(1)); // play/pause
+        } else {
+            showScreen(Screen.LAUNCHER);
+            Platform.runLater(appList::requestFocus);
+        }
+
+        TranslateTransition t = new TranslateTransition(Duration.millis(180), phone);
+        t.setToY(0);
+        t.play();
+
+        Platform.runLater(() -> {
+            appList.getSelectionModel().select(0);
+            appList.requestFocus();
+        });
+    }
+
+    private void hidePhone() {
+        if (!phoneVisible)
+            return;
+        phoneVisible = false;
+
+        // clickBlocker.setMouseTransparent(true);
+
+        TranslateTransition t = new TranslateTransition(Duration.millis(180), phone);
+        t.setToY(PHONE_H + 40);
+        t.play();
+
+        root.requestFocus();
+    }
 
     // ---------------- Phone construction ----------------
 
@@ -232,7 +264,7 @@ public void start(Stage stage) throws Exception {
                 if (playPauseBtn != null)
                     playPauseBtn.setText("Play");
                 statusBar.setText("Stopped");
-                        updateDanceState();   
+                updateDanceState();
                 return;
             }
 
@@ -273,7 +305,7 @@ public void start(Stage stage) throws Exception {
                 statusBar.setText("Playing");
                 nowTrack.setText(next.displayName());
                 musicList.getSelectionModel().select(playlist.index());
-                        updateDanceState();   
+                updateDanceState();
             } else {
                 engine.stop();
                 isPlaying = false;
@@ -281,7 +313,7 @@ public void start(Stage stage) throws Exception {
                 if (playPauseBtn != null)
                     playPauseBtn.setText("Play");
                 statusBar.setText("Stopped");
-                        updateDanceState();   
+                updateDanceState();
             }
         }));
 
@@ -793,48 +825,6 @@ public void start(Stage stage) throws Exception {
         node.setManaged(visible);
     }
 
-    // ---------------- Phone open/close + click blocking ----------------
-
-    private void showPhone() {
-        if (phoneVisible)
-            return;
-        phoneVisible = true;
-
-        clickBlocker.setMouseTransparent(false); // block clicks outside phone
-
-        // Always open to launcher
-        if (isPlaying) {
-            showScreen(Screen.MUSIC_PLAYER);
-            Platform.runLater(() -> focusPlayerBtn(1)); // play/pause
-        } else {
-            showScreen(Screen.LAUNCHER);
-            Platform.runLater(appList::requestFocus);
-        }
-
-        TranslateTransition t = new TranslateTransition(Duration.millis(180), phone);
-        t.setToY(0);
-        t.play();
-
-        Platform.runLater(() -> {
-            appList.getSelectionModel().select(0);
-            appList.requestFocus();
-        });
-    }
-
-    private void hidePhone() {
-        if (!phoneVisible)
-            return;
-        phoneVisible = false;
-
-        clickBlocker.setMouseTransparent(true);
-
-        TranslateTransition t = new TranslateTransition(Duration.millis(180), phone);
-        t.setToY(PHONE_H + 40);
-        t.play();
-
-        root.requestFocus();
-    }
-
     // ---------------- Playback logic ----------------
 
     private Track pickNextTrackOnEnd() {
@@ -919,60 +909,56 @@ public void start(Stage stage) throws Exception {
             progressTimer.stop();
     }
 
-private void initDancer() {
-    Image sheet = new Image(
-            getClass().getResource("/sprites/zero.png").toExternalForm()
-    );
+    private void initDancer() {
+        Image sheet = new Image(
+                getClass().getResource("/sprites/zero.png").toExternalForm());
 
-    int cols = 8;
-    int rows = 3;
-    int frameW = (int) sheet.getWidth() / cols;
-    int frameH = (int) sheet.getHeight() / rows;
+        int cols = 8;
+        int rows = 3;
+        int frameW = (int) sheet.getWidth() / cols;
+        int frameH = (int) sheet.getHeight() / rows;
 
-    dancer = new ImageView(sheet);
-    dancer.setViewport(new javafx.geometry.Rectangle2D(0, 0, frameW, frameH));
-    dancer.setSmooth(false);
+        dancer = new ImageView(sheet);
+        dancer.setViewport(new javafx.geometry.Rectangle2D(0, 0, frameW, frameH));
+        dancer.setSmooth(false);
 
-    StackPane.setAlignment(dancer, Pos.BOTTOM_RIGHT);
-    StackPane.setMargin(dancer, new Insets(0, 30, 30, 0));
+        StackPane.setAlignment(dancer, Pos.BOTTOM_RIGHT);
+        StackPane.setMargin(dancer, new Insets(0, 30, 30, 0));
 
-    danceTimeline = new Timeline(new KeyFrame(Duration.millis(90), e -> {
-        danceIdx = (danceIdx + 1) % (cols * rows);
-        int x = (danceIdx % cols) * frameW;
-        int y = (danceIdx / cols) * frameH;
-        dancer.setViewport(new javafx.geometry.Rectangle2D(x, y, frameW, frameH));
-    }));
-    danceTimeline.setCycleCount(Timeline.INDEFINITE);
+        danceTimeline = new Timeline(new KeyFrame(Duration.millis(90), e -> {
+            danceIdx = (danceIdx + 1) % (cols * rows);
+            int x = (danceIdx % cols) * frameW;
+            int y = (danceIdx / cols) * frameH;
+            dancer.setViewport(new javafx.geometry.Rectangle2D(x, y, frameW, frameH));
+        }));
+        danceTimeline.setCycleCount(Timeline.INDEFINITE);
 
-    danceFrameW = (int) sheet.getWidth() / cols;
-danceFrameH = (int) sheet.getHeight() / rows;
+        danceFrameW = (int) sheet.getWidth() / cols;
+        danceFrameH = (int) sheet.getHeight() / rows;
 
-dancer.setViewport(new javafx.geometry.Rectangle2D(0, 0, danceFrameW, danceFrameH));
-
-}
-
-
-
-// add these fields near dancer fields
-private int danceFrameW;
-private int danceFrameH;
-
-private void updateDanceState() {
-    boolean shouldDance = isPlaying && !isPaused;
-    if (danceTimeline == null || dancer == null) return;
-
-    if (shouldDance) {
-        if (danceTimeline.getStatus() != javafx.animation.Animation.Status.RUNNING) {
-            danceTimeline.play();
-        }
-    } else {
-        danceTimeline.stop();
-        danceIdx = 0;
         dancer.setViewport(new javafx.geometry.Rectangle2D(0, 0, danceFrameW, danceFrameH));
+
     }
-}
 
+    // add these fields near dancer fields
+    private int danceFrameW;
+    private int danceFrameH;
 
+    private void updateDanceState() {
+        boolean shouldDance = isPlaying && !isPaused;
+        if (danceTimeline == null || dancer == null)
+            return;
+
+        if (shouldDance) {
+            if (danceTimeline.getStatus() != javafx.animation.Animation.Status.RUNNING) {
+                danceTimeline.play();
+            }
+        } else {
+            danceTimeline.stop();
+            danceIdx = 0;
+            dancer.setViewport(new javafx.geometry.Rectangle2D(0, 0, danceFrameW, danceFrameH));
+        }
+    }
 
     @Override
     public void stop() {
