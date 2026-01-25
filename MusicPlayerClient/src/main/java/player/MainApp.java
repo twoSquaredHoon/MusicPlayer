@@ -208,8 +208,8 @@ public class MainApp extends Application {
     }
 
     // ---------------- Phone construction ----------------
-
     private VBox createPhone(Stage stage) throws Exception {
+        // Stacks item vertically 10 spaces
         VBox box = new VBox(10);
         box.setPrefSize(PHONE_W, PHONE_H);
         box.setMinSize(PHONE_W, PHONE_H);
@@ -238,7 +238,8 @@ public class MainApp extends Application {
 
         // default screen
         showScreen(Screen.LAUNCHER);
-
+        
+        // Stacks screens in the phone
         box.getChildren().addAll(title, launcherScreen, musicListScreen, musicPlayerScreen);
 
         // anchor phone bottom-left
@@ -288,12 +289,12 @@ public class MainApp extends Application {
                     // SECOND end: now it advances normally (since loopMode is already OFF)
                     next = pickNextTrackOnEnd();
                 }
-
             } else {
                 // OFF: normal advance
                 next = pickNextTrackOnEnd();
             }
 
+            // Decide to play or stop the next song
             if (next != null) {
                 engine.play(next);
                 startProgressTimer();
@@ -320,6 +321,7 @@ public class MainApp extends Application {
         return box;
     }
 
+    // Builds the launcher screen
     private VBox buildLauncherScreen() {
         VBox v = new VBox(10);
         v.setAlignment(Pos.TOP_CENTER);
