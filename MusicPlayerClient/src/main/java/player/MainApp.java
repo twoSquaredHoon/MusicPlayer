@@ -172,8 +172,7 @@ public class MainApp extends Application {
         stage.show();
     }
 
-    // ---------------- Phone open/close + click blocking (disabled)
-    // ----------------
+    // ---------------- Phone open/close + click blocking (disabled) ----------------
     private void showPhone() {
         if (phoneVisible)
             return;
@@ -245,7 +244,7 @@ public class MainApp extends Application {
 
         // default screen
         showScreen(Screen.LAUNCHER);
-
+        
         // Stacks screens in the phone
         box.getChildren().addAll(title, launcherScreen, musicListScreen, musicPlayerScreen);
 
@@ -422,157 +421,172 @@ public class MainApp extends Application {
         // others: do nothing for now
     }
 
-    private VBox buildMusicListScreen() {
-        VBox v = new VBox(8);
-        v.setAlignment(Pos.TOP_CENTER);
 
-        Label header = new Label("Music");
-        header.setStyle("-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 12;");
 
-        musicList.setFixedCellSize(48);
-        musicList.setPrefWidth(PHONE_W - 28);
-        musicList.setMaxWidth(PHONE_W - 28);
 
-        musicList.setCellFactory(lv -> new ListCell<>() {
-            private final Label title = new Label();
-            private final Label artist = new Label();
-            private final VBox textBox = new VBox(2, title, artist);
 
-            {
-                title.setStyle("""
-                            -fx-text-fill: black;
-                            -fx-font-size: 12;
-                            -fx-font-weight: bold;
-                        """);
+private VBox buildMusicListScreen() {
+    VBox v = new VBox(8);
+    v.setAlignment(Pos.TOP_CENTER);
 
-                artist.setStyle("""
-                            -fx-text-fill: black;
-                            -fx-font-size: 10;
-                        """);
+    Label header = new Label("Music");
+    header.setStyle("-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 12;");
 
-                textBox.setAlignment(Pos.CENTER_LEFT);
-                textBox.setMaxWidth(PHONE_W - 50);
+    musicList.setFixedCellSize(48);
+    musicList.setPrefWidth(PHONE_W - 28);
+    musicList.setMaxWidth(PHONE_W - 28);
+    
+    musicList.setCellFactory(lv -> new ListCell<>() {
+        private final Label title = new Label();
+        private final Label artist = new Label();
+        private final VBox textBox = new VBox(2, title, artist);
 
+        {
+            title.setStyle("""
+                -fx-text-fill: black;
+                -fx-font-size: 12;
+                -fx-font-weight: bold;
+            """);
+
+            artist.setStyle("""
+                -fx-text-fill: black;
+                -fx-font-size: 10;
+            """);
+
+            textBox.setAlignment(Pos.CENTER_LEFT);
+            textBox.setMaxWidth(PHONE_W - 50);
+
+            setText(null);
+            setGraphic(textBox);
+            setPadding(new Insets(6, 8, 6, 8));
+
+            Rectangle clip = new Rectangle();
+            clip.widthProperty().bind(widthProperty().subtract(16));
+            clip.heightProperty().bind(heightProperty());
+            textBox.setClip(clip);
+        }
+
+        @Override
+        protected void updateItem(Track item, boolean empty) {
+            super.updateItem(item, empty);
+
+            if (empty || item == null) {
+                setGraphic(null);
                 setText(null);
-                setGraphic(textBox);
-                setPadding(new Insets(6, 8, 6, 8));
-
-                Rectangle clip = new Rectangle();
-                clip.widthProperty().bind(widthProperty().subtract(16));
-                clip.heightProperty().bind(heightProperty());
-                textBox.setClip(clip);
-            }
-
-            @Override
-            protected void updateItem(Track item, boolean empty) {
-                super.updateItem(item, empty);
-
-                if (empty || item == null) {
-                    setGraphic(null);
-                    setText(null);
-                    setStyle("-fx-background-color: transparent;");
-                    return;
-                }
-
-                title.setText(item.displayName());
-                title.setMinWidth(Region.USE_PREF_SIZE);
-                title.setMaxWidth(Region.USE_PREF_SIZE);
-                title.setWrapText(false);
-
-                artist.setText("Unknown Artist");
-
-                setGraphic(textBox);
-                updateSelectionStyle();
-            }
-
-            @Override
-            public void updateSelected(boolean selected) {
-                super.updateSelected(selected);
-                updateSelectionStyle();
-
-                if (marquee != null)
-                    marquee.stop();
-                title.setTranslateX(0);
-
-                if (selected) {
-                    double overflow = title.getWidth() - (musicList.getWidth() - 40);
-                    if (overflow > 0) {
-                        marquee = new TranslateTransition(Duration.seconds(overflow / 30), title);
-                        marquee.setFromX(0);
-                        marquee.setToX(-overflow);
-                        marquee.setAutoReverse(true);
-                        marquee.setCycleCount(TranslateTransition.INDEFINITE);
-                        marquee.play();
-                    }
-                }
-            }
-
-            private void updateSelectionStyle() {
-                if (isSelected()) {
-                    setStyle("""
-                                -fx-background-color: rgba(76,175,80,0.85);
-                                -fx-background-radius: 10;
-                            """);
-                } else {
-                    setStyle("""
-                                -fx-background-color: rgba(255,255,255,0.05);
-                                -fx-background-radius: 10;
-                            """);
-                }
-            }
-        });
-
-        // Hide ALL scrollbars
-        musicList.lookupAll(".scroll-bar").forEach(node -> {
-            if (node instanceof ScrollBar) {
-                ScrollBar bar = (ScrollBar) node;
-                bar.setVisible(false);
-                bar.setManaged(false);
-                bar.setOpacity(0);
-                bar.setPrefHeight(0);
-                bar.setMaxHeight(0);
-                bar.setPrefWidth(0);
-                bar.setMaxWidth(0);
-            }
-        });
-
-        musicList.skinProperty().addListener((obs, oldSkin, newSkin) -> {
-            if (newSkin != null) {
-                Platform.runLater(() -> {
-                    musicList.lookupAll(".scroll-bar").forEach(node -> {
-                        if (node instanceof ScrollBar) {
-                            ScrollBar bar = (ScrollBar) node;
-                            bar.setVisible(false);
-                            bar.setManaged(false);
-                            bar.setOpacity(0);
-                            bar.setPrefHeight(0);
-                            bar.setMaxHeight(0);
-                            bar.setPrefWidth(0);
-                            bar.setMaxWidth(0);
-                            bar.setDisable(true);
-                        }
-                    });
-                });
-            }
-        });
-
-        musicList.getSelectionModel().selectedIndexProperty().addListener((obs, oldV, newV) -> {
-            if (newV == null)
+                setStyle("-fx-background-color: transparent;");
                 return;
-            int i = newV.intValue();
-            if (i >= 0)
-                musicList.scrollTo(i);
-        });
+            }
 
-        VBox.setVgrow(musicList, Priority.ALWAYS);
-        v.getChildren().addAll(header, musicList);
+            title.setText(item.displayName());
+            title.setMinWidth(Region.USE_PREF_SIZE);
+            title.setMaxWidth(Region.USE_PREF_SIZE);
+            title.setWrapText(false);
 
-        // COMPLETELY DISABLE ALL TRACKPAD/MOUSE SCROLLING
-        musicList.addEventFilter(ScrollEvent.ANY, ScrollEvent::consume);
-        musicList.setOnScroll(ScrollEvent::consume);
+            artist.setText("Unknown Artist");
 
-        return v;
-    }
+            setGraphic(textBox);
+            updateSelectionStyle();
+        }
+
+        @Override
+        public void updateSelected(boolean selected) {
+            super.updateSelected(selected);
+            updateSelectionStyle();
+
+            if (marquee != null) marquee.stop();
+            title.setTranslateX(0);
+
+            if (selected) {
+                double overflow = title.getWidth() - (musicList.getWidth() - 40);
+                if (overflow > 0) {
+                    marquee = new TranslateTransition(Duration.seconds(overflow / 30), title);
+                    marquee.setFromX(0);
+                    marquee.setToX(-overflow);
+                    marquee.setAutoReverse(true);
+                    marquee.setCycleCount(TranslateTransition.INDEFINITE);
+                    marquee.play();
+                }
+            }
+        }
+
+        private void updateSelectionStyle() {
+            if (isSelected()) {
+                setStyle("""
+                    -fx-background-color: rgba(76,175,80,0.85);
+                    -fx-background-radius: 10;
+                """);
+            } else {
+                setStyle("""
+                    -fx-background-color: rgba(255,255,255,0.05);
+                    -fx-background-radius: 10;
+                """);
+            }
+        }
+    });
+
+    // Hide ALL scrollbars
+    musicList.lookupAll(".scroll-bar").forEach(node -> {
+        if (node instanceof ScrollBar) {
+            ScrollBar bar = (ScrollBar) node;
+            bar.setVisible(false);
+            bar.setManaged(false);
+            bar.setOpacity(0);
+            bar.setPrefHeight(0);
+            bar.setMaxHeight(0);
+            bar.setPrefWidth(0);
+            bar.setMaxWidth(0);
+        }
+    });
+
+    musicList.skinProperty().addListener((obs, oldSkin, newSkin) -> {
+        if (newSkin != null) {
+            Platform.runLater(() -> {
+                musicList.lookupAll(".scroll-bar").forEach(node -> {
+                    if (node instanceof ScrollBar) {
+                        ScrollBar bar = (ScrollBar) node;
+                        bar.setVisible(false);
+                        bar.setManaged(false);
+                        bar.setOpacity(0);
+                        bar.setPrefHeight(0);
+                        bar.setMaxHeight(0);
+                        bar.setPrefWidth(0);
+                        bar.setMaxWidth(0);
+                        bar.setDisable(true);
+                    }
+                });
+            });
+        }
+    });
+
+    musicList.getSelectionModel().selectedIndexProperty().addListener((obs, oldV, newV) -> {
+        if (newV == null) return;
+        int i = newV.intValue();
+        if (i >= 0) musicList.scrollTo(i);
+    });
+
+    // Set initial selection to first item
+    Platform.runLater(() -> {
+        if (!musicList.getItems().isEmpty()) {
+            musicList.getSelectionModel().select(0);
+            musicList.scrollTo(0);
+            musicList.requestFocus();
+        }
+    });
+
+    VBox.setVgrow(musicList, Priority.ALWAYS);
+    v.getChildren().addAll(header, musicList);
+
+    // COMPLETELY DISABLE ALL TRACKPAD/MOUSE SCROLLING
+    musicList.addEventFilter(ScrollEvent.ANY, ScrollEvent::consume);
+    musicList.setOnScroll(ScrollEvent::consume);
+
+    return v;
+}
+
+
+
+
+    
 
     private VBox buildMusicPlayerScreen() {
         VBox v = new VBox(10);
