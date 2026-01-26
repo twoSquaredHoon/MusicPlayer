@@ -422,13 +422,76 @@ public class MainApp extends Application {
         Label header = new Label("Music");
         header.setStyle("-fx-text-fill: rgba(255,255,255,0.7); -fx-font-size: 12;");
 
-        musicList.setCellFactory(lv -> new ListCell<>() {
-            @Override
-            protected void updateItem(Track item, boolean empty) {
-                super.updateItem(item, empty);
-                setText((empty || item == null) ? null : item.displayName());
-            }
-        });
+musicList.setCellFactory(lv -> new ListCell<>() {
+    private final Label title = new Label();
+    private final Label artist = new Label();
+    private final VBox textBox = new VBox(2, title, artist);
+
+    {
+        title.setStyle("""
+            -fx-text-fill: black;
+            -fx-font-size: 12;
+            -fx-font-weight: bold;
+        """);
+
+        artist.setStyle("""
+            -fx-text-fill: black;
+            -fx-font-size: 10;
+        """);
+
+        textBox.setAlignment(Pos.CENTER_LEFT);
+
+        setText(null); // graphic-only cell
+        setGraphic(textBox);
+        setPadding(new Insets(6, 8, 6, 8));
+    }
+
+    @Override
+    protected void updateItem(Track item, boolean empty) {
+        super.updateItem(item, empty);
+
+        if (empty || item == null) {
+            setGraphic(null);
+            setText(null);
+            setStyle("-fx-background-color: transparent;");
+            return;
+        }
+
+        title.setText(item.displayName());
+
+artist.setText("Unknown Artist");
+
+        setGraphic(textBox);
+        updateSelectionStyle();
+    }
+
+@Override
+public void updateSelected(boolean selected) {
+    super.updateSelected(selected);
+    updateSelectionStyle();
+}
+
+
+    private void updateSelectionStyle() {
+        if (isSelected()) {
+            setStyle("""
+                -fx-background-color: rgba(76,175,80,0.85);
+                -fx-background-radius: 10;
+            """);
+        } else {
+            setStyle("""
+                -fx-background-color: rgba(255,255,255,0.05);
+                -fx-background-radius: 10;
+            """);
+        }
+    }
+});
+musicList.getSelectionModel().selectedIndexProperty().addListener((obs, oldV, newV) -> {
+    if (newV == null) return;
+    int i = newV.intValue();
+    if (i >= 0) musicList.scrollTo(i);
+});
+
 
         VBox.setVgrow(musicList, Priority.ALWAYS);
         v.getChildren().addAll(header, musicList);
