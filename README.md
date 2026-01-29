@@ -88,3 +88,5 @@ vol <0..1>       - set volume
 now              - show current track/time
 quit
 ```
+
+// 어 미안 오늘만 사기 좀 칠게 진짜 577 과제 수준 실화냐 가슴이 웅장해진다...
